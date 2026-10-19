@@ -51,11 +51,11 @@ function show(publication: PublicationDto, motion: 'full' | 'reduced' = 'full') 
 const ms = (value: string) => Number.parseFloat(value);
 
 describe('PublicationView', () => {
-  it('shows the date, the quote, and its author and work', () => {
+  it('shows the quote with quotation marks and attribution, without a date', () => {
     const { container } = show(emerson);
 
-    expect(container.querySelector('time')?.textContent).toBe('Sunday, October 18, 2026');
-    expect(container.querySelector('time')?.getAttribute('datetime')).toBe('2026-10-18');
+    expect(container.querySelector('time')).toBeNull();
+    expect(container.textContent).not.toContain('October');
     expect(container.querySelector('figcaption')?.textContent).toBe(
       'Ralph Waldo EmersonWorks and Days',
     );
@@ -75,7 +75,7 @@ describe('PublicationView', () => {
     const quote = container.querySelector('blockquote');
     const animated = quote?.querySelector('[aria-hidden="true"]');
 
-    expect(quote?.querySelector('.visually-hidden')?.textContent).toBe(emerson.quote.text);
+    expect(quote?.querySelector('.visually-hidden')?.textContent).toBe(`“${emerson.quote.text}”`);
     expect(animated?.querySelectorAll('.word')).toHaveLength(15);
   });
 
@@ -86,7 +86,7 @@ describe('PublicationView', () => {
       .map((node) => (node.nodeName === 'BR' ? '\n' : node.textContent))
       .join('');
 
-    expect(rebuilt).toBe(shakespeare.quote.text);
+    expect(rebuilt).toBe(`“${shakespeare.quote.text}”`);
   });
 
   it('reveals words one after another and the attribution after the last word lands', () => {

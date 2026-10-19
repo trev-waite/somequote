@@ -792,4 +792,404 @@ export const GENERAL_QUOTES: readonly GeneralEntry[] = [
     source: 'On the Origin of Species',
     provenance: { sourceId: 'gutenberg-1228', locator: 'Chapter XIV, final sentence' },
   },
+  {
+    id: 'marcus-aurelius-strength-to-bear',
+    text: 'Nothing happens to any man which he is not formed by nature to bear.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations',
+    provenance: {
+      sourceId: 'gutenberg-15877',
+      locator: 'Book V, 18',
+    },
+  },
+  {
+    id: 'marcus-aurelius-listen-carefully',
+    text: 'Accustom thyself to attend carefully to what is said by another, and as much as it is possible, be in the speaker’s mind.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations',
+    provenance: {
+      sourceId: 'gutenberg-15877',
+      locator: 'Book VI, 53',
+    },
+  },
+  {
+    id: 'marcus-aurelius-swarm-and-bee',
+    text: 'That which is not good for the swarm, neither is it good for the bee.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations',
+    provenance: {
+      sourceId: 'gutenberg-15877',
+      locator: 'Book VI, 54',
+    },
+  },
+  {
+    id: 'confucius-pleasure-in-learning',
+    text: 'Is it not pleasant to learn with a constant perseverance and application?',
+    author: 'Confucius',
+    source: 'The Analects',
+    provenance: {
+      sourceId: 'gutenberg-3330',
+      locator: 'Book I, 1',
+    },
+  },
+  {
+    id: 'confucius-earnest-in-conduct',
+    text: 'The superior man wishes to be slow in his speech and earnest in his conduct.',
+    author: 'Confucius',
+    source: 'The Analects',
+    provenance: {
+      sourceId: 'gutenberg-3330',
+      locator: 'Book IV, 24',
+    },
+  },
+  {
+    id: 'confucius-knowing-what-you-know',
+    text: 'When you know a thing, to hold that you know it; and when you do not know a thing, to allow that you do not know it;— this is knowledge.',
+    author: 'Confucius',
+    source: 'The Analects',
+    provenance: {
+      sourceId: 'gutenberg-3330',
+      locator: 'Book II, 17',
+    },
+  },
+  {
+    id: 'emerson-integrity-of-your-mind',
+    text: 'Nothing is at last sacred but the integrity of your own mind.',
+    author: 'Ralph Waldo Emerson',
+    source: 'Self-Reliance',
+    provenance: {
+      sourceId: 'gutenberg-2944',
+      locator: 'Self-Reliance',
+    },
+  },
+  {
+    id: 'emerson-love-and-be-loved',
+    text: 'Love, and you shall be loved.',
+    author: 'Ralph Waldo Emerson',
+    source: 'Compensation',
+    provenance: {
+      sourceId: 'gutenberg-2944',
+      locator: 'Compensation',
+    },
+  },
+  {
+    id: 'emerson-do-your-work',
+    text: 'Do your work, and you shall reinforce yourself.',
+    author: 'Ralph Waldo Emerson',
+    source: 'Self-Reliance',
+    provenance: {
+      sourceId: 'gutenberg-2944',
+      locator: 'Self-Reliance',
+    },
+  },
+  {
+    id: 'thoreau-we-change',
+    text: 'Things do not change; we change.',
+    author: 'Henry David Thoreau',
+    source: 'Walden',
+    provenance: {
+      sourceId: 'gutenberg-205',
+      locator: 'Conclusion',
+    },
+  },
+  {
+    id: 'thoreau-conscious-endeavor',
+    text: 'I know of no more encouraging fact than the unquestionable ability of man to elevate his life by a conscious endeavor.',
+    author: 'Henry David Thoreau',
+    source: 'Walden',
+    provenance: {
+      sourceId: 'gutenberg-205',
+      locator: 'Where I Lived, and What I Lived For',
+    },
+  },
+  {
+    id: 'thoreau-goodness-never-fails',
+    text: 'Goodness is the only investment that never fails.',
+    author: 'Henry David Thoreau',
+    source: 'Walden',
+    provenance: {
+      sourceId: 'gutenberg-205',
+      locator: 'Higher Laws',
+    },
+  },
+  {
+    id: 'thoreau-love-your-life',
+    text: 'Love your life, poor as it is.',
+    author: 'Henry David Thoreau',
+    source: 'Walden',
+    provenance: {
+      sourceId: 'gutenberg-205',
+      locator: 'Conclusion',
+    },
+  },
+  {
+    id: 'tagore-roots-below-the-earth',
+    text: 'The roots below the earth claim no rewards for making the branches fruitful.',
+    author: 'Rabindranath Tagore',
+    source: 'Stray Birds',
+    provenance: {
+      sourceId: 'gutenberg-6524',
+      locator: '134',
+    },
+  },
+  {
+    id: 'tagore-summer-flowers',
+    text: 'Let life be beautiful like summer flowers and death like autumn leaves.',
+    author: 'Rabindranath Tagore',
+    source: 'Stray Birds',
+    provenance: {
+      sourceId: 'gutenberg-6524',
+      locator: '82',
+    },
+  },
+  {
+    id: 'tagore-stars-and-fireflies',
+    text: 'The stars are not afraid to appear like fireflies.',
+    author: 'Rabindranath Tagore',
+    source: 'Stray Birds',
+    provenance: {
+      sourceId: 'gutenberg-6524',
+      locator: '48',
+    },
+  },
+  {
+    id: 'tagore-you-smiled',
+    text: 'You smiled and talked to me of nothing and I felt that for this I had been waiting long.',
+    author: 'Rabindranath Tagore',
+    source: 'Stray Birds',
+    provenance: {
+      sourceId: 'gutenberg-6524',
+      locator: '42',
+    },
+  },
+  {
+    id: 'tagore-once-we-dreamt',
+    text: 'Once we dreamt that we were strangers. We wake up to find that we were dear to each other.',
+    author: 'Rabindranath Tagore',
+    source: 'Stray Birds',
+    provenance: {
+      sourceId: 'gutenberg-6524',
+      locator: '9',
+    },
+  },
+  {
+    id: 'tagore-evening-star-of-rest',
+    text: 'Light in my heart the evening star of rest and then let the night whisper to me of love.',
+    author: 'Rabindranath Tagore',
+    source: 'Stray Birds',
+    provenance: {
+      sourceId: 'gutenberg-6524',
+      locator: '274',
+    },
+  },
+  {
+    id: 'gibran-daily-life',
+    text: 'Your daily life is your temple and your religion.',
+    author: 'Kahlil Gibran',
+    source: 'The Prophet',
+    provenance: {
+      sourceId: 'gutenberg-58585',
+      locator: 'On Religion',
+    },
+  },
+  {
+    id: 'gibran-sweetness-of-friendship',
+    text: 'In the sweetness of friendship let there be laughter, and sharing of pleasures. For in the dew of little things the heart finds its morning and is refreshed.',
+    author: 'Kahlil Gibran',
+    source: 'The Prophet',
+    provenance: {
+      sourceId: 'gutenberg-58585',
+      locator: 'On Friendship',
+    },
+  },
+  {
+    id: 'gibran-room-for-joy',
+    text: 'The deeper that sorrow carves into your being, the more joy you can contain.',
+    author: 'Kahlil Gibran',
+    source: 'The Prophet',
+    provenance: {
+      sourceId: 'gutenberg-58585',
+      locator: 'On Joy and Sorrow',
+    },
+  },
+  {
+    id: 'gibran-beauty-and-eternity',
+    text: 'Beauty is eternity gazing at itself in a mirror.',
+    author: 'Kahlil Gibran',
+    source: 'The Prophet',
+    provenance: {
+      sourceId: 'gutenberg-58585',
+      locator: 'On Beauty',
+    },
+  },
+  {
+    id: 'montgomery-trying-and-failing',
+    text: 'Next to trying and winning, the best thing is trying and failing.',
+    author: 'L. M. Montgomery',
+    source: 'Anne of Green Gables',
+    provenance: {
+      sourceId: 'gutenberg-45',
+      locator: 'Chapter XXXV',
+    },
+  },
+  {
+    id: 'montgomery-around-the-bend',
+    text: 'I don’t know what lies around the bend, but I’m going to believe that the best does.',
+    author: 'L. M. Montgomery',
+    source: 'Anne of Green Gables',
+    provenance: {
+      sourceId: 'gutenberg-45',
+      locator: 'Chapter XXXVIII',
+    },
+  },
+  {
+    id: 'alcott-good-strong-words',
+    text: 'I like good strong words that mean something.',
+    author: 'Louisa May Alcott',
+    source: 'Little Women',
+    provenance: {
+      sourceId: 'gutenberg-514',
+      locator: 'Chapter XIV',
+    },
+  },
+  {
+    id: 'whitman-leaf-of-grass',
+    text: 'I believe a leaf of grass is no less than the journey work of the stars.',
+    author: 'Walt Whitman',
+    source: 'Song of Myself',
+    provenance: {
+      sourceId: 'gutenberg-1322',
+      locator: 'Section 31',
+    },
+  },
+  {
+    id: 'whitman-contain-multitudes',
+    text: 'I am large, I contain multitudes.',
+    author: 'Walt Whitman',
+    source: 'Song of Myself',
+    provenance: {
+      sourceId: 'gutenberg-1322',
+      locator: 'Section 51',
+    },
+  },
+  {
+    id: 'franklin-diligence',
+    text: 'Diligence is the mother of good luck.',
+    author: 'Benjamin Franklin',
+    source: 'The Way to Wealth',
+    provenance: {
+      sourceId: 'gutenberg-43855',
+      locator: 'Poor Richard’s Almanack, 1758',
+    },
+  },
+  {
+    id: 'keller-tolerance',
+    text: 'The highest result of education is tolerance.',
+    author: 'Helen Keller',
+    source: 'Optimism',
+    provenance: {
+      sourceId: 'gutenberg-31622',
+      locator: 'Part II',
+    },
+  },
+  {
+    id: 'keller-see-the-best',
+    text: 'I try to increase the power God has given me to see the best in everything and every one, and make that Best a part of my life.',
+    author: 'Helen Keller',
+    source: 'Optimism',
+    provenance: {
+      sourceId: 'gutenberg-31622',
+      locator: 'Part I',
+    },
+  },
+  {
+    id: 'dickinson-to-make-a-prairie',
+    text: 'To make a prairie it takes a clover and one bee, —\nOne clover, and a bee,\nAnd revery.\nThe revery alone will do\nIf bees are few.',
+    author: 'Emily Dickinson',
+    source: 'Poems, Third Series',
+    provenance: {
+      sourceId: 'gutenberg-12242',
+      locator: 'Third Series, Nature, XV',
+    },
+  },
+  {
+    id: 'shakespeare-love-like-sunshine',
+    text: 'Love comforteth like sunshine after rain.',
+    author: 'William Shakespeare',
+    source: 'Venus and Adonis',
+    provenance: {
+      sourceId: 'gutenberg-100',
+      locator: 'Line 799',
+    },
+  },
+  {
+    id: 'shakespeare-remedies-within',
+    text: 'Our remedies oft in ourselves do lie,\nWhich we ascribe to heaven.',
+    author: 'William Shakespeare',
+    source: 'All’s Well That Ends Well',
+    provenance: {
+      sourceId: 'gutenberg-100',
+      locator: 'Act I, Scene 1',
+    },
+  },
+  {
+    id: 'shakespeare-climb-steep-hills',
+    text: 'To climb steep hills\nRequires slow pace at first.',
+    author: 'William Shakespeare',
+    source: 'Henry VIII',
+    provenance: {
+      sourceId: 'gutenberg-100',
+      locator: 'Act I, Scene 1',
+    },
+  },
+  {
+    id: 'austen-if-i-loved-you-less',
+    text: 'If I loved you less, I might be able to talk about it more.',
+    author: 'Jane Austen',
+    source: 'Emma',
+    provenance: {
+      sourceId: 'gutenberg-158',
+      locator: 'Volume III, Chapter XIII',
+    },
+  },
+  {
+    id: 'austen-comfort-of-home',
+    text: 'There is nothing like staying at home for real comfort.',
+    author: 'Jane Austen',
+    source: 'Emma',
+    provenance: {
+      sourceId: 'gutenberg-158',
+      locator: 'Volume II, Chapter XIV',
+    },
+  },
+  {
+    id: 'longfellow-footprints',
+    text: 'Lives of great men all remind us\nWe can make our lives sublime,\nAnd, departing, leave behind us\nFootprints on the sands of time.',
+    author: 'Henry Wadsworth Longfellow',
+    source: 'A Psalm of Life',
+    provenance: {
+      sourceId: 'gutenberg-1365',
+      locator: 'Stanza 7',
+    },
+  },
+  {
+    id: 'longfellow-heights-reached',
+    text: 'The heights by great men reached and kept\nWere not attained by sudden flight,\nBut they, while their companions slept,\nWere toiling upward in the night.',
+    author: 'Henry Wadsworth Longfellow',
+    source: 'The Ladder of St. Augustine',
+    provenance: {
+      sourceId: 'gutenberg-1365',
+      locator: 'Stanza 10',
+    },
+  },
+  {
+    id: 'longfellow-farther-than-today',
+    text: 'Not enjoyment, and not sorrow,\nIs our destined end or way;\nBut to act, that each to-morrow\nFind us farther than to-day.',
+    author: 'Henry Wadsworth Longfellow',
+    source: 'A Psalm of Life',
+    provenance: {
+      sourceId: 'gutenberg-1365',
+      locator: 'Stanza 3',
+    },
+  },
 ];

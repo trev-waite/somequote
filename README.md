@@ -73,9 +73,9 @@ Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_fou
 
 ## Content
 
-`packages/content` holds 142 quotes: 110 general quotes and 32 verses (about 78/22; the published mix is held at 80/20 by the rotation).
+`packages/content` holds 192 quotes: 150 general quotes and 42 verses (about 78/22; the published mix is held at 80/20 by the rotation).
 
-- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 142 quotes against 60 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
+- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 192 quotes against 60 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
 - **Avoided misattributions.** Popular versions that do not match their sources were replaced with the authentic text. For example, Thoreau's "advances confidently in the direction of his dreams", Keller's "nothing can be done without hope" (no "and confidence"), Tolstoy's "patience and time", and Goethe's "a little song" (not "music").
 - **Licensing.** General quotes come from works in the public domain in the United States (published before 1931, including the translations used: Long, Legge, Müller, Gummere, Jowett, Chase, Hapgood, Maude, Carlyle, and the Kelloggs). Some translators and authors died less than 70 years ago, so a few texts may still be under copyright in other jurisdictions; they appear here as short, attributed quotations. Verses are exact excerpts of the [World English Bible](https://worldenglish.bible) (public domain; "World English Bible" is a trademark of eBible.org, and excerpts are never altered so the name stays accurate).
 - **Seeding.** `bun run db:seed:local` upserts every quote by id and disables quotes removed from the collection. History is never touched, and a quote's category cannot change.
@@ -85,6 +85,7 @@ To add a quote, edit `general.ts` or `bible.ts`, then run `bun run test`, `bun r
 ## Design
 
 - **Typography.** The quote is set in **Instrument Serif**, the typeface Trevor's Knight site uses for its name in the primary theme. The WOFF2 is a byte-identical copy, self-hosted with its SIL Open Font License (`apps/web/public/fonts`). Secondary text uses the system UI font. Spacing and line heights sit on an 8px grid; the quote size steps with its length and the viewport.
+- **Presentation.** The featured text is enclosed in typographic quotation marks, followed by its attribution. The publication date is kept in the API and history, and is not displayed on the page.
 - **Reveal.** Words rise 8px and fade in over 400ms, each 80ms after the last (tightened for long quotes so the cascade stays under 2.4s). The attribution fades in over 450ms once the last word has finished. Timing lives in `src/client/reveal.ts`. The page waits for both the quote and the font before revealing, so words are laid out once in their final face. Screen readers get the full text once; with `prefers-reduced-motion`, nothing moves and the quote simply fades in.
 - **Color.** `#FFFFFF` and `#000000`, reversed in dark mode (system preference). Gray is used only for the date and attribution.
 
@@ -115,7 +116,7 @@ Later content changes need only `bun run db:seed:remote`; schema changes need a 
 
 ## Verification
 
-Verified locally on October 18, 2026: frozen-lockfile Bun install, migrations and idempotent seeding, lint, typechecking (including generated Worker types), all 105 tests, and the production build. The tests include real local D1 contention, publication history, selection distribution, DST, API failures, and reveal timing/accessibility. Source verification matched all 142 quotes against 60 primary texts.
+Verified locally on October 18, 2026: frozen-lockfile Bun install, migrations and idempotent seeding, lint, typechecking (including generated Worker types), all 105 tests, and the production build. The tests include real local D1 contention, publication history, selection distribution, DST, API failures, and reveal timing/accessibility. Source verification matched all 192 quotes against 60 primary texts.
 
 The production preview was checked in the browser at desktop and mobile sizes, including font loading, overflow, word/attribution sequencing, and console errors. No Cloudflare resources were created, no account authentication was performed, and nothing was deployed. Production bindings and deployment remain to be verified after connecting your account.
 

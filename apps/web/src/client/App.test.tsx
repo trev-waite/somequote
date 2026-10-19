@@ -27,7 +27,7 @@ async function settle() {
 }
 
 describe('App', () => {
-  it('waits for the quote before revealing it, then shows the date, quote, and attribution', async () => {
+  it('waits for the quote before revealing its text and attribution', async () => {
     let resolve: (value: PublicationDto) => void = () => undefined;
     const load = vi.fn(() => new Promise<PublicationDto>((done) => (resolve = done)));
     const view = render(<App load={load} />);
@@ -40,9 +40,9 @@ describe('App', () => {
     await settle();
 
     expect(view.container.querySelector('main')?.getAttribute('aria-busy')).toBe('false');
-    expect(view.container.querySelector('time')?.textContent).toBe('Sunday, October 18, 2026');
+    expect(view.container.querySelector('time')).toBeNull();
     expect(view.container.querySelector('blockquote .visually-hidden')?.textContent).toBe(
-      publication.quote.text,
+      `“${publication.quote.text}”`,
     );
     expect(view.container.querySelector('figcaption')?.textContent).toContain(
       'Henry David Thoreau',
