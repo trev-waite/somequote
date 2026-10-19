@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "somequote",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2026-10-18",
+  "upload_source_maps": true,
+  "assets": {
+    // The React app is served as static assets; only /api/* reaches the Worker.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "somequote",
+      "migrations_dir": "migrations"
+      // No database_id yet. Local development needs none. Before deploying, add the id printed by
+      // `wrangler d1 create somequote` (see README), or let `wrangler deploy` provision one.
+    }
+  ],
+  "triggers": {
+    // Midnight in New York is 04:00 UTC during daylight time and 05:00 UTC during standard time.
+    // Both triggers run every day; publishing is idempotent, so the one that is not midnight is a no-op.
+    "crons": ["0 4 * * *", "0 5 * * *"]
+  },
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+  }
+}

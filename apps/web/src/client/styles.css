@@ -1,0 +1,299 @@
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrument-serif-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Spacing and line heights sit on an 8px grid. */
+:root {
+  color-scheme: light dark;
+
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-10: 80px;
+
+  --paper: #ffffff;
+  --ink: #000000;
+  --ink-secondary: #3d3d3d;
+  --ink-muted: #6b6b6b;
+
+  --font-quote: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --word-rise: 8px;
+
+  --quote-size: 40px;
+  --quote-leading: 48px;
+  --quote-measure: 11em;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #000000;
+    --ink: #ffffff;
+    --ink-secondary: #c7c7c7;
+    --ink-muted: #9a9a9a;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Layout: the header and an equal-height footer keep the quote centred on the viewport. */
+.page {
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: var(--space-4) 1fr var(--space-4);
+  row-gap: var(--space-4);
+  padding: max(var(--space-5), env(safe-area-inset-top))
+    max(var(--space-3), env(safe-area-inset-right)) max(var(--space-5), env(safe-area-inset-bottom))
+    max(var(--space-3), env(safe-area-inset-left));
+}
+
+.page-header {
+  display: flex;
+  justify-content: center;
+}
+
+.brand {
+  margin: 0;
+  line-height: 0;
+  color: var(--ink);
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: var(--space-4);
+}
+
+.page-main {
+  display: grid;
+  place-items: center;
+}
+
+/* Publication */
+.publication {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1040px;
+  text-align: center;
+}
+
+.publication-date {
+  display: block;
+  margin-bottom: var(--space-4);
+  color: var(--ink-muted);
+  font: 500 12px / 16px var(--font-ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-variant-numeric: lining-nums;
+}
+
+.publication-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+}
+
+.quote {
+  position: relative;
+  max-width: var(--quote-measure);
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-quote);
+  font-size: var(--quote-size);
+  font-weight: 400;
+  line-height: var(--quote-leading);
+  font-kerning: normal;
+  font-synthesis: none;
+  text-wrap: balance;
+  hanging-punctuation: first last;
+}
+
+.quote p {
+  margin: 0;
+}
+
+.quote[data-length="short"] {
+  --quote-size: 40px;
+  --quote-leading: 48px;
+  --quote-measure: 9.5em;
+}
+
+.quote[data-length="medium"] {
+  --quote-size: 32px;
+  --quote-leading: 40px;
+  --quote-measure: 11.5em;
+}
+
+.quote[data-length="long"] {
+  --quote-size: 24px;
+  --quote-leading: 32px;
+  --quote-measure: 14em;
+}
+
+@media (min-width: 640px) {
+  .quote[data-length="short"] {
+    --quote-size: 56px;
+    --quote-leading: 64px;
+    --quote-measure: 11em;
+  }
+
+  .quote[data-length="medium"] {
+    --quote-size: 44px;
+    --quote-leading: 56px;
+    --quote-measure: 13em;
+  }
+
+  .quote[data-length="long"] {
+    --quote-size: 32px;
+    --quote-leading: 40px;
+    --quote-measure: 18em;
+  }
+}
+
+@media (min-width: 1024px) {
+  .quote[data-length="short"] {
+    --quote-size: 72px;
+    --quote-leading: 80px;
+  }
+
+  .quote[data-length="medium"] {
+    --quote-size: 52px;
+    --quote-leading: 64px;
+    --quote-measure: 14em;
+  }
+
+  .quote[data-length="long"] {
+    --quote-size: 38px;
+    --quote-leading: 48px;
+    --quote-measure: 20em;
+  }
+}
+
+.attribution {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-4);
+  font: 15px / 24px var(--font-ui);
+}
+
+.attribution-primary {
+  color: var(--ink-secondary);
+  font-weight: 500;
+}
+
+.attribution-secondary {
+  color: var(--ink-muted);
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-muted);
+  font: 15px / 24px var(--font-ui);
+}
+
+.status p {
+  margin: 0;
+}
+
+.status button {
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--space-1);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  user-select: none;
+}
+
+/*
+ * Reveal. Timing and the reduced-motion choice come from reveal.ts and are set inline. Elements
+ * start hidden through `animation-fill-mode: both`, so without animation everything is visible.
+ */
+.word {
+  display: inline-block;
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+}
+
+.publication-date,
+.quote,
+.attribution {
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+}
+
+@keyframes word-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--word-rise));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
