@@ -1,6 +1,6 @@
 # SomeQuote
 
-One quote a day, the same for everyone. A white page, one beautifully set quote that reveals itself word by word, and its attribution.
+One quote a day, the same for everyone. A quote reveals itself word by word; scroll to a writer's desk with a lamp that switches the color scheme and a clock counting down to the next quote.
 
 - About 80% enduring quotes from writers, philosophers, scientists, and leaders, and about 20% verses from the World English Bible.
 - A new quote at midnight in New York (`America/New_York`), published once and kept in a permanent history.
@@ -86,8 +86,9 @@ To add a quote, edit `general.ts` or `bible.ts`, then run `bun run test`, `bun r
 
 - **Typography.** The quote is set in **Instrument Serif**, the typeface Trevor's Knight site uses for its name in the primary theme. The WOFF2 is a byte-identical copy, self-hosted with its SIL Open Font License (`apps/web/public/fonts`). Secondary text uses the system UI font. Spacing and line heights sit on an 8px grid; the quote size steps with its length and the viewport.
 - **Presentation.** The featured text is enclosed in typographic quotation marks, followed by its attribution. The publication date is kept in the API and history, and is not displayed on the page.
-- **Reveal.** Words rise 8px and fade in over 400ms, each 80ms after the last (tightened for long quotes so the cascade stays under 2.4s). The attribution fades in over 450ms once the last word has finished. Timing lives in `src/client/reveal.ts`. The page waits for both the quote and the font before revealing, so words are laid out once in their final face. Screen readers get the full text once; with `prefers-reduced-motion`, nothing moves and the quote simply fades in.
-- **Color.** `#FFFFFF` and `#000000`, reversed in dark mode (system preference). Gray is used only for the date and attribution.
+- **Reveal.** Words rise 8px and unblur from 6px over 650ms, each 80ms after the last (tightened for long quotes so the final word starts within 2.4s). The attribution uses the same blur, duration, and easing, starting one stagger after the final word starts. Completed text releases its animation filters. Timing lives in `src/client/reveal.ts`. The page waits for both the quote and the font before revealing. Screen readers get the full text once; reduced motion uses a single opacity fade.
+- **Desk.** Scrolling snaps between the quote and an isometric desk with an open book, a lamp, and a flip clock. The lamp switches modes when clicked or when its cord is pulled; taps give the cord a smooth tug, and a mouse can brush it aside. The clock counts down to the next Eastern midnight using the domain publication clock, including 23- and 25-hour days, and refreshes the quote when it expires. Reduced motion disables scene and clock animations.
+- **Color.** `#FFFFFF` and `#000000`, reversed in dark mode. The page initially follows the system preference and remembers a manual choice. A script applies it before first paint; the document background and browser theme color stay in sync for Safari's toolbars.
 
 ## Deploying to Cloudflare
 
@@ -116,7 +117,7 @@ Later content changes need only `bun run db:seed:remote`; schema changes need a 
 
 ## Verification
 
-Verified locally on October 18, 2026: frozen-lockfile Bun install, migrations and idempotent seeding, lint, typechecking (including generated Worker types), all 105 tests, and the production build. The tests include real local D1 contention, publication history, selection distribution, DST, API failures, and reveal timing/accessibility. Source verification matched all 192 quotes against 60 primary texts.
+Run `bun run lint && bun run typecheck && bun run test && bun run build` before publishing. The tests cover real local D1 contention, publication history, selection distribution, DST, API failures, reveal timing/accessibility, cord gestures, clock animation cleanup, and countdown rollover. `bun run content:verify-sources` checks all 192 quotes against 60 primary texts; add `--refresh` to download the sources again instead of using the local cache.
 
 The production preview was checked in the browser at desktop and mobile sizes, including font loading, overflow, word/attribution sequencing, and console errors. No Cloudflare resources were created, no account authentication was performed, and nothing was deployed. Production bindings and deployment remain to be verified after connecting your account.
 

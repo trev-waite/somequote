@@ -27,21 +27,70 @@
   --font-quote: "Instrument Serif", "Iowan Old Style", Georgia, serif;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-reveal: cubic-bezier(0.4, 0, 0.2, 1);
   --word-rise: 8px;
+  --reveal-blur: 6px;
 
   --quote-size: 40px;
   --quote-leading: 48px;
   --quote-measure: 11em;
+
+  --iso-face: #ffffff;
+  --iso-top: #ffffff;
+  --iso-shade-0: #dcdcd9;
+  --iso-shade-1: #e5e5e2;
+  --iso-shade-2: #ededea;
+  --iso-shade-3: #f4f4f1;
+  --iso-hi: #26262a;
+  --iso-mid: #8a8a8f;
+  --iso-lo: #b4b4b8;
+  --iso-faint: #d4d4d6;
+  --iso-lit: #000000;
+  --iso-halo: #8a8a80;
+  --iso-halo-opacity: 0.2;
+  --iso-weight: 0.6px;
+  --lamp-light: #ffb84a;
+  --clock-window: #0e0e0f;
+  --clock-card: #1c1c1e;
+  --clock-digit: #f5f3ee;
+
+  /* Scenes use the large viewport, which stays put while Safari's toolbars come and go. */
+  --scene-height: 100vh;
 }
 
-@media (prefers-color-scheme: dark) {
+@supports (height: 100lvh) {
   :root {
-    --paper: #000000;
-    --ink: #ffffff;
-    --ink-secondary: #c7c7c7;
-    --ink-muted: #9a9a9a;
+    --scene-height: 100lvh;
   }
+}
+
+/* `data-color-scheme` is set before first paint by public/color-scheme.js and toggled by the lamp. */
+:root[data-color-scheme="light"] {
+  color-scheme: light;
+}
+
+:root[data-color-scheme="dark"] {
+  color-scheme: dark;
+  --paper: #000000;
+  --ink: #ffffff;
+  --ink-secondary: #c7c7c7;
+  --ink-muted: #9a9a9a;
+  --iso-face: #0b0b0b;
+  --iso-top: #141414;
+  --iso-shade-0: #070707;
+  --iso-shade-1: #0a0a0a;
+  --iso-shade-2: #0d0d0d;
+  --iso-shade-3: #101010;
+  --iso-hi: #d4d4d4;
+  --iso-mid: #6a6a6a;
+  --iso-lo: #3e3e3e;
+  --iso-faint: #262626;
+  --iso-lit: #ffffff;
+  --iso-halo: #000000;
+  --iso-halo-opacity: 0;
+  --clock-window: #000000;
+  --clock-card: #161616;
+  --clock-digit: #d9d7d2;
 }
 
 *,
@@ -50,15 +99,20 @@
   box-sizing: border-box;
 }
 
+/*
+ * Safari tints its toolbars from the page beneath them, so the document is always an opaque
+ * --paper and nothing fixed or sticky paints at the viewport edges.
+ */
 html {
-  background: var(--paper);
+  background-color: var(--paper);
+  scroll-snap-type: y mandatory;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background-color: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
@@ -66,15 +120,26 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Layout: the header and an equal-height footer keep the quote centred on the viewport. */
-.page {
-  min-height: 100svh;
-  display: grid;
-  grid-template-rows: var(--space-4) 1fr var(--space-4);
-  row-gap: var(--space-4);
+/* Layout: two full-height scenes, the quote and the lamp, that the page snaps between. */
+.scene {
+  min-height: var(--scene-height);
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   padding: max(var(--space-5), env(safe-area-inset-top))
     max(var(--space-3), env(safe-area-inset-right)) max(var(--space-5), env(safe-area-inset-bottom))
     max(var(--space-3), env(safe-area-inset-left));
+}
+
+.scene-quote {
+  display: grid;
+}
+
+/* The header and an equal-height footer keep the quote centred in its scene. */
+.scene-content {
+  display: grid;
+  grid-template-rows: var(--space-4) 1fr var(--space-4);
+  row-gap: var(--space-4);
+  transform-origin: 50% 40%;
 }
 
 .page-header {
@@ -251,30 +316,39 @@ body {
   user-select: none;
 }
 
-/*
- * Reveal. Timing and the reduced-motion choice come from reveal.ts and are set inline. Elements
- * start hidden through `animation-fill-mode: both`, so without animation everything is visible.
- */
+/* Backwards fill hides delayed text, then releases filters and transforms when the reveal ends. */
 .word {
   display: inline-block;
-  animation-timing-function: var(--ease-out);
-  animation-fill-mode: both;
 }
 
+.word,
 .quote,
 .attribution {
-  animation-timing-function: var(--ease-out);
-  animation-fill-mode: both;
+  animation-timing-function: var(--ease-reveal);
+  animation-fill-mode: backwards;
 }
 
 @keyframes word-rise {
   from {
     opacity: 0;
+    filter: blur(var(--reveal-blur));
     transform: translateY(var(--word-rise));
   }
   to {
     opacity: 1;
+    filter: none;
     transform: none;
+  }
+}
+
+@keyframes blur-in {
+  from {
+    opacity: 0;
+    filter: blur(var(--reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: none;
   }
 }
 
@@ -284,5 +358,257 @@ body {
   }
   to {
     opacity: 1;
+  }
+}
+
+/* Lamp scene */
+.scene-lamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.lamp-stage {
+  width: min(94vw, 620px, 78vh);
+}
+
+.desk {
+  position: relative;
+}
+
+/* A transparent button over the lamp itself; the drawing underneath shows what it is. */
+.lamp-switch {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--space-2);
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.iso-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.iso-fill {
+  fill: var(--iso-face);
+}
+
+.iso-top {
+  fill: var(--iso-top);
+  stroke: var(--iso-top);
+  stroke-width: 0.4px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Each shade is stroked in its own tone so neighbouring facets meet without a seam. */
+.iso-shade {
+  stroke-width: 0.4px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.iso-shade[data-shade="0"] {
+  fill: var(--iso-shade-0);
+  stroke: var(--iso-shade-0);
+}
+
+.iso-shade[data-shade="1"] {
+  fill: var(--iso-shade-1);
+  stroke: var(--iso-shade-1);
+}
+
+.iso-shade[data-shade="2"] {
+  fill: var(--iso-shade-2);
+  stroke: var(--iso-shade-2);
+}
+
+.iso-shade[data-shade="3"] {
+  fill: var(--iso-shade-3);
+  stroke: var(--iso-shade-3);
+}
+
+.iso-halo {
+  fill: var(--iso-halo);
+  opacity: var(--iso-halo-opacity);
+  transform: translateY(3px);
+}
+
+.iso-line {
+  fill: none;
+  stroke: var(--iso-lo);
+  stroke-width: var(--iso-weight);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.iso-line[data-tone="hi"] {
+  stroke: var(--iso-hi);
+}
+
+.iso-line[data-tone="mid"] {
+  stroke: var(--iso-mid);
+}
+
+.iso-line[data-tone="faint"] {
+  stroke: var(--iso-faint);
+}
+
+.iso-line[data-dotted] {
+  stroke-dasharray: 0.01 2.6;
+  stroke-width: 1px;
+}
+
+/* The flip clock's cards: dark cards with paper-coloured figures in the quote's typeface. */
+.flip-window {
+  fill: var(--clock-window);
+}
+
+.flip-card {
+  fill: var(--clock-card);
+}
+
+.flip-digits {
+  fill: var(--clock-digit);
+  font-family: var(--font-quote);
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.flip-shade {
+  fill: #000000;
+}
+
+.flip-hinge {
+  stroke: var(--clock-window);
+  stroke-width: 0.45;
+}
+
+.flip-pin {
+  fill: var(--iso-mid);
+}
+
+/* Lit is light mode: the pool on the plate and the glow at the rim exist only while the lamp is on. */
+.lamp-light {
+  display: none;
+}
+
+:root[data-color-scheme="light"] .lamp-light {
+  display: inline;
+}
+
+.lamp-pool {
+  mix-blend-mode: multiply;
+}
+
+.lamp-rim {
+  fill: none;
+  stroke: var(--lamp-light);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* Zero-length dashes with round caps draw the ball chain as a line of beads. */
+.lamp-cord {
+  fill: none;
+  stroke: var(--iso-hi);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 0 2.7;
+}
+
+.lamp-pull-body {
+  fill: var(--iso-face);
+  stroke: var(--iso-lit);
+  stroke-width: var(--iso-weight);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.lamp-pull-crease {
+  fill: none;
+  stroke: var(--iso-mid);
+  stroke-width: var(--iso-weight);
+  vector-effect: non-scaling-stroke;
+}
+
+/* Touches here pull the cord; everywhere else on the lamp they scroll the page. */
+.lamp-cord-zone {
+  position: absolute;
+  touch-action: none;
+  cursor: grab;
+}
+
+.lamp-cord-zone:active {
+  cursor: grabbing;
+}
+
+.desk-writing {
+  fill: var(--iso-hi);
+  font-family: var(--font-quote);
+  text-anchor: middle;
+}
+
+/*
+ * Scene handoff. Scrolling down, the quote recedes into depth while the lamp grows into the centre;
+ * scrolling up plays the same tracks backwards. Scroll snapping settles whichever scene is nearer.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scene-quote {
+      view-timeline: --quote-scene block;
+    }
+
+    .scene-lamp {
+      view-timeline: --lamp-scene block;
+    }
+
+    .scene-content {
+      animation: scene-recede linear both;
+      animation-timeline: --quote-scene;
+      animation-range: exit 0% exit 100%;
+    }
+
+    .lamp-stage {
+      animation: lamp-arrive linear both;
+      animation-timeline: --lamp-scene;
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+@keyframes scene-recede {
+  60% {
+    opacity: 0;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--scene-height) * 0.3)) scale(0.9);
+  }
+}
+
+@keyframes lamp-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--scene-height) * -0.4)) scale(0.55);
+    filter: blur(8px);
+  }
+  35% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
   }
 }
