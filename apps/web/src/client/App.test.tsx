@@ -65,6 +65,31 @@ describe('App', () => {
     expect(view.container.querySelector('article')?.getAttribute('data-motion')).toBe('fade');
   });
 
+  it('switches between light and dark mode from the lamp', () => {
+    const view = render(<App load={() => new Promise(() => undefined)} />);
+    cleanup = view.unmount;
+    const lamp = () => view.container.querySelector<HTMLButtonElement>('.lamp-switch');
+    const before = document.documentElement.dataset.colorScheme ?? 'light';
+
+    act(() => lamp()?.click());
+
+    expect(document.documentElement.dataset.colorScheme).toBe(
+      before === 'light' ? 'dark' : 'light',
+    );
+    expect(lamp()?.getAttribute('aria-label')).toContain(
+      before === 'light' ? 'light mode' : 'dark mode',
+    );
+  });
+
+  it('counts down to the next quote', () => {
+    const view = render(<App load={() => new Promise(() => undefined)} />);
+    cleanup = view.unmount;
+
+    expect(view.container.querySelector('[role="timer"]')?.textContent).toMatch(
+      /^\d{2}:\d{2}:\d{2} until the next quote$/,
+    );
+  });
+
   it('offers a retry when the quote cannot be loaded, and recovers', async () => {
     const load = vi
       .fn<() => Promise<PublicationDto>>()

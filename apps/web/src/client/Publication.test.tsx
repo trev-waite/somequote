@@ -89,22 +89,20 @@ describe('PublicationView', () => {
     expect(rebuilt).toBe(`“${shakespeare.quote.text}”`);
   });
 
-  it('reveals words one after another and the attribution after the last word lands', () => {
+  it('reveals words in order and blurs in the attribution on the next stagger', () => {
     const { words, attribution } = show(emerson);
 
     expect(words.map((word) => word.style.animationName)).toEqual(words.map(() => 'word-rise'));
     expect(words.map((word) => ms(word.style.animationDelay))).toEqual(
       words.map((_, index) => index * 80),
     );
-    expect(words.every((word) => ms(word.style.animationDuration) === 400)).toBe(true);
+    expect(words.every((word) => ms(word.style.animationDuration) === 650)).toBe(true);
 
     const lastWord = words.at(-1);
     if (!lastWord) throw new Error('no words');
-    expect(attribution.style.animationName).toBe('fade-in');
-    expect(ms(attribution.style.animationDelay)).toBe(
-      ms(lastWord.style.animationDelay) + ms(lastWord.style.animationDuration),
-    );
-    expect(ms(attribution.style.animationDuration)).toBe(450);
+    expect(attribution.style.animationName).toBe('blur-in');
+    expect(ms(attribution.style.animationDelay)).toBe(ms(lastWord.style.animationDelay) + 80);
+    expect(attribution.style.animationDuration).toBe(lastWord.style.animationDuration);
     expect(attribution.querySelectorAll('.word')).toHaveLength(0);
   });
 
@@ -119,8 +117,9 @@ describe('PublicationView', () => {
   });
 
   it('does not restart the reveal when the page re-renders with the same quote', () => {
-    const { words, rerender, container } = show(emerson);
+    const { words, attribution, rerender, container } = show(emerson);
     const before = words.map((word) => word.style.cssText);
+    const attributionBefore = attribution.style.cssText;
 
     rerender(
       <PublicationView publication={{ ...emerson, quote: { ...emerson.quote } }} motion="full" />,
@@ -132,5 +131,7 @@ describe('PublicationView', () => {
       expect(word).toBe(words[index]);
       expect(word.style.cssText).toBe(before[index]);
     });
+    expect(container.querySelector('figcaption')).toBe(attribution);
+    expect(attribution.style.cssText).toBe(attributionBefore);
   });
 });

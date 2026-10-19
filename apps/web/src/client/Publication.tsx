@@ -18,7 +18,10 @@ export function lengthClass(text: string): 'short' | 'medium' | 'long' {
   return 'long';
 }
 
-function animation(name: 'word-rise' | 'fade-in', { delayMs, durationMs }: Timing): CSSProperties {
+function animation(
+  name: 'word-rise' | 'blur-in' | 'fade-in',
+  { delayMs, durationMs }: Timing,
+): CSSProperties {
   return {
     animationName: name,
     animationDelay: `${delayMs}ms`,
@@ -40,7 +43,7 @@ export function PublicationView({ publication, motion }: PublicationViewProps) {
   const { primary, secondary } = attributionOf(quote);
 
   const fade = plan.kind === 'fade' ? animation('fade-in', plan.fade) : undefined;
-  const attributionStyle = plan.kind === 'cascade' ? animation('fade-in', plan.attribution) : fade;
+  const attributionStyle = plan.kind === 'cascade' ? animation('blur-in', plan.attribution) : fade;
 
   return (
     <article className="publication" data-motion={plan.kind}>

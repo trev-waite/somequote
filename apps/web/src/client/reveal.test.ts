@@ -2,24 +2,31 @@ import { describe, expect, it } from 'vitest';
 import { planReveal, REVEAL, tokenize } from './reveal';
 
 describe('planReveal', () => {
-  it('starts each word 80ms after the previous one and lets each rise for 400ms', () => {
+  it('starts each word 80ms after the previous one and lets each reveal for 650ms', () => {
     const plan = planReveal(5, 'full');
     if (plan.kind !== 'cascade') throw new Error('expected a cascade');
 
     expect(plan.words).toEqual(
-      [0, 80, 160, 240, 320].map((delayMs) => ({ delayMs, durationMs: 400 })),
+      [0, 80, 160, 240, 320].map((delayMs) => ({ delayMs, durationMs: 650 })),
     );
   });
 
-  it('fades the attribution in, over 450ms, only once the last word has finished', () => {
-    for (const wordCount of [1, 2, 7, 18, 60]) {
+  it('blurs in the attribution on the next stagger, including for long and single-word quotes', () => {
+    for (const { wordCount, delayMs } of [
+      { wordCount: 1, delayMs: 80 },
+      { wordCount: 2, delayMs: 160 },
+      { wordCount: 7, delayMs: 560 },
+      { wordCount: 18, delayMs: 1440 },
+      { wordCount: 61, delayMs: 2440 },
+    ]) {
       const plan = planReveal(wordCount, 'full');
       if (plan.kind !== 'cascade') throw new Error('expected a cascade');
       const lastWord = plan.words.at(-1);
       if (!lastWord) throw new Error('expected words');
 
-      expect(plan.attribution.delayMs).toBe(lastWord.delayMs + lastWord.durationMs);
-      expect(plan.attribution.durationMs).toBe(450);
+      expect(plan.attribution.delayMs).toBe(delayMs);
+      expect(plan.attribution.delayMs).toBeLessThan(lastWord.delayMs + lastWord.durationMs);
+      expect(plan.attribution.durationMs).toBe(lastWord.durationMs);
     }
   });
 
@@ -41,9 +48,7 @@ describe('planReveal', () => {
     if (plan.kind !== 'cascade') throw new Error('expected a cascade');
 
     expect(plan.words.at(-1)?.delayMs).toBeLessThanOrEqual(REVEAL.maxCascadeMs);
-    expect(plan.attribution.delayMs).toBeLessThanOrEqual(
-      REVEAL.maxCascadeMs + REVEAL.wordDurationMs,
-    );
+    expect(plan.attribution.delayMs).toBeLessThanOrEqual(REVEAL.maxCascadeMs + REVEAL.staggerMs);
   });
 
   it('replaces motion with a single gentle fade when motion is reduced', () => {

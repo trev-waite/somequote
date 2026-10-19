@@ -1,10 +1,9 @@
 /** Motion design for the quote reveal. All timing lives here; CSS supplies only the keyframes. */
 export const REVEAL = {
-  wordDurationMs: 400,
+  durationMs: 650,
   staggerMs: 80,
   /** Long quotes tighten the stagger so the last word starts within this window. */
   maxCascadeMs: 2400,
-  attributionDurationMs: 450,
   reducedFadeMs: 300,
 } as const;
 
@@ -16,7 +15,7 @@ export interface Timing {
 }
 
 export type RevealPlan =
-  /** Words rise into place one after another; the attribution fades in once the last word has landed. */
+  /** Words unblur and rise in reading order; the attribution follows on the same stagger. */
   | { readonly kind: 'cascade'; readonly words: readonly Timing[]; readonly attribution: Timing }
   /** Reduced motion: nothing moves; the whole quote and its attribution fade in together. */
   | { readonly kind: 'fade'; readonly fade: Timing };
@@ -26,18 +25,19 @@ export function planReveal(wordCount: number, motion: Motion): RevealPlan {
     return { kind: 'fade', fade: { delayMs: 0, durationMs: REVEAL.reducedFadeMs } };
   }
   const stagger =
-    wordCount > 1 ? Math.min(REVEAL.staggerMs, REVEAL.maxCascadeMs / (wordCount - 1)) : 0;
+    wordCount > 1
+      ? Math.min(REVEAL.staggerMs, REVEAL.maxCascadeMs / (wordCount - 1))
+      : REVEAL.staggerMs;
   const words = Array.from({ length: wordCount }, (_, index) => ({
     delayMs: Math.round(index * stagger),
-    durationMs: REVEAL.wordDurationMs,
+    durationMs: REVEAL.durationMs,
   }));
-  const lastWord = words.at(-1);
   return {
     kind: 'cascade',
     words,
     attribution: {
-      delayMs: lastWord ? lastWord.delayMs + lastWord.durationMs : 0,
-      durationMs: REVEAL.attributionDurationMs,
+      delayMs: Math.round(wordCount * stagger),
+      durationMs: REVEAL.durationMs,
     },
   };
 }
