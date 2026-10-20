@@ -109,12 +109,119 @@ describe('Envelope', () => {
   it('copies the link and says so', async () => {
     const writeText = vi.fn(() => Promise.resolve());
     stubNavigator({ clipboard: { writeText }, share: undefined });
-    const { query, options, optionElements, open } = showDesk();
+    const { query, options, optionElements, open, wait } = showDesk();
     open();
     await act(async () => optionElements()[0]?.click());
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/`);
     expect(options()[0]).toBe('Link copied');
     expect(query('[role="status"]')?.textContent).toBe('Link copied');
+    wait(4999);
+    expect(options()[0]).toBe('Link copied');
+    wait(1);
+    expect(options()[0]).toBe('Copy link');
+  });
+
+  it('starts a fresh five seconds when the link is copied again', async () => {
+    stubNavigator({ clipboard: { writeText: () => Promise.resolve() } });
+    const { options, optionElements, open, wait } = showDesk();
+    open();
+    await act(async () => optionElements()[0]?.click());
+    wait(4000);
+    await act(async () => optionElements()[0]?.click());
+    wait(4000);
+    expect(options()[0]).toBe('Link copied');
+    wait(1000);
+    expect(options()[0]).toBe('Copy link');
+  });
+
+  it.each(['mouse', 'touch'])(
+    'reveals the airplane after a %s pull and springs the letter back',
+    (pointerType) => {
+      const { query, open, wait, options } = showDesk();
+      open();
+      const handle = query<HTMLButtonElement>('.envelope-pull');
+      if (!handle) throw new Error('missing letter grip');
+      const letter = query('.envelope-letter')?.parentElement;
+      const before = letter?.getAttribute('transform');
+      const pointer = (type: string, clientY: number) =>
+        act(() => {
+          handle.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              pointerId: 1,
+              button: 0,
+              pointerType,
+              clientY,
+            }),
+          );
+        });
+      pointer('pointerdown', 200);
+      pointer('pointermove', 155);
+      expect(letter?.getAttribute('transform')).not.toBe(before);
+      pointer('pointerup', 155);
+      expect(handle.getAttribute('aria-label')).toBe('Fly paper airplane');
+      wait(1000);
+      expect(letter?.getAttribute('transform')).toBe(before);
+      expect(options()).toEqual(['Copy link', 'Post on X', 'Send by email']);
+    },
+  );
+
+  it('flies away, stays gone for five seconds, then floats back ready to open', () => {
+    const { query, trigger, press, open, wait } = showDesk();
+    open();
+    const handle = query('.envelope-pull');
+    if (!handle) throw new Error('missing letter grip');
+    press(handle);
+    press(handle);
+    expect(query('.envelope')?.getAttribute('data-flight')).toBe('folding');
+    wait(1550);
+    expect(query('.paper-airplane')).not.toBeNull();
+    wait(5650);
+    expect(query('.envelope')?.getAttribute('visibility')).toBe('hidden');
+    wait(4800);
+    expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
+    wait(250);
+    expect(query('.envelope')?.getAttribute('data-flight')).toBe('landing');
+    wait(3500);
+    expect(trigger.getAttribute('aria-disabled')).toBe('false');
+    expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
+    open();
+    expect(query('.envelope-option')?.textContent).toBe('Copy link');
+  });
+
+  it('restores the envelope immediately when scrolling while the airplane is gone', () => {
+    const { query, trigger, press, open, wait } = showDesk();
+    open();
+    const handle = query('.envelope-pull');
+    if (!handle) throw new Error('missing letter grip');
+    press(handle);
+    press(handle);
+    wait(7300);
+    expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
+    act(() => {
+      window.scrollTo(0, window.scrollY - 100);
+      window.dispatchEvent(new Event('scroll'));
+    });
+    expect(trigger.getAttribute('aria-disabled')).toBe('false');
+    expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
+    wait(9000);
+    expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
+  });
+
+  it('lets keyboard users reveal and fly the airplane without the full-motion sequence', () => {
+    const { query, trigger, press, open, wait } = showDesk('reduced');
+    open();
+    const handle = query('.envelope-pull');
+    if (!handle) throw new Error('missing letter grip');
+    act(() =>
+      handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })),
+    );
+    expect(handle.getAttribute('aria-label')).toBe('Fly paper airplane');
+    press(handle);
+    expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
+    wait(5000);
+    expect(trigger.getAttribute('aria-disabled')).toBe('false');
+    expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
   });
 
   it('folds shut on a press anywhere else, without switching the lamp', () => {

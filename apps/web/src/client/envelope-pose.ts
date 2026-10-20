@@ -10,7 +10,7 @@ export const ENVELOPE = {
   width: 40,
   height: 27,
   flap: 15,
-  letter: { inset: 2, height: 24, travel: 23 },
+  letter: { inset: 2, height: 32, travel: 31 },
   /** The lifted envelope faces the reader at this size, centred here in viewBox units. */
   lifted: { scale: 3, x: 0, y: 26 },
   /** How far it rises (world units) on its way off the desk. */
@@ -19,7 +19,7 @@ export const ENVELOPE = {
 
 export const LETTER_WIDTH = ENVELOPE.width - 2 * ENVELOPE.letter.inset;
 /** Each share option is a row on the letter, in letter units from its top edge. */
-export const LETTER_ROWS = { top: 1.4, height: 6.4, count: 3 } as const;
+export const LETTER_ROWS = { top: 9.4, height: 6.4, count: 3 } as const;
 
 /** How far each part has moved: 0 is lying on the desk, letter in, flap open. */
 export interface Pose {
@@ -124,7 +124,7 @@ const mix = (a: Vec3, b: Vec3, t: number) => vec.add(vec.scale(a, 1 - t), vec.sc
  * The envelope's frame at `lift`: it rises in an arc, growing, while it turns from lying in the
  * desk to facing the reader. `u` and `v` are scaled to the envelope's size; `n` faces out of its back.
  */
-function frameAt(lift: number) {
+export function frameAt(lift: number) {
   const u = vec.normalize(mix(DESK_U, SCREEN.right, lift));
   const towardDown = mix(DESK_V, SCREEN.down, lift);
   const v = vec.normalize(vec.sub(towardDown, vec.scale(u, vec.dot(towardDown, u))));
@@ -154,8 +154,13 @@ export interface EnvelopeDrawing {
   readonly flapSide: 'inside' | 'outside';
 }
 
-export function drawingAt({ lift, letter, flap }: Pose): EnvelopeDrawing {
-  const { origin, u, v, n, size } = frameAt(lift);
+export type EnvelopeFrame = ReturnType<typeof frameAt>;
+
+export function drawingAt(
+  { lift, letter, flap }: Pose,
+  frame: EnvelopeFrame = frameAt(lift),
+): EnvelopeDrawing {
+  const { origin, u, v, n, size } = frame;
   const angle = flap * Math.PI;
   const flapV = vec.add(vec.scale(v, -Math.cos(angle)), vec.scale(n, size * Math.sin(angle)));
   const { inset, travel } = ENVELOPE.letter;
@@ -208,6 +213,11 @@ const letterTop = ENVELOPE.letter.inset - ENVELOPE.letter.travel;
 export const LIFTED_BOX = screenBox([
   at(lifted, 0, Math.min(letterTop, -ENVELOPE.flap)),
   at(lifted, ENVELOPE.width, ENVELOPE.height),
+]);
+
+export const LETTER_PULL_BOX = screenBox([
+  at(lifted, ENVELOPE.letter.inset, letterTop),
+  at(lifted, ENVELOPE.letter.inset + LETTER_WIDTH, letterTop + LETTER_ROWS.top),
 ]);
 
 /** Each share option's row on the lifted letter. */

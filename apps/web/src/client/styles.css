@@ -629,7 +629,8 @@ body {
 
 /* Transparent controls over the drawing, like the lamp switch. */
 .envelope-trigger,
-.envelope-option {
+.envelope-option,
+.envelope-pull {
   position: absolute;
   margin: 0;
   padding: 0;
@@ -644,12 +645,80 @@ body {
 
 .envelope-trigger[aria-disabled="true"] {
   cursor: default;
+  outline: none;
 }
 
 /* The cord's zone overlaps the resting envelope's box and wins there; the lifted letter is above both. */
 .envelope-card {
   position: absolute;
   z-index: 2;
+  touch-action: none;
+}
+
+.envelope-options {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.envelope-option {
+  pointer-events: auto;
+}
+
+.envelope-pull {
+  cursor: grab;
+  touch-action: none;
+}
+
+.envelope-pull:active {
+  cursor: grabbing;
+}
+
+.envelope-pull[aria-label="Fly paper airplane"] {
+  cursor: pointer;
+}
+
+.envelope-airplane-icon,
+.envelope-pull-mark {
+  fill: none;
+  stroke: var(--iso-mid);
+  stroke-width: 0.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.envelope-airplane-icon {
+  transition: opacity 180ms ease;
+}
+
+.envelope-pull-mark {
+  stroke: var(--iso-faint);
+}
+
+.paper-airplane path {
+  fill: var(--iso-top);
+  stroke: var(--iso-hi);
+  stroke-width: var(--iso-weight);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.paper-airplane [data-panel="1"] {
+  fill: var(--iso-shade-2);
+}
+
+.paper-airplane [data-panel="2"] {
+  fill: var(--iso-face);
+}
+
+.paper-airplane [data-panel="3"] {
+  fill: var(--iso-shade-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .envelope-airplane-icon {
+    transition: none;
+  }
 }
 
 .envelope-option:hover {

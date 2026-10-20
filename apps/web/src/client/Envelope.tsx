@@ -2,8 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import type { QuoteDto } from '../shared/api-contract';
 import { LAMP_LIGHT, overlay, VIEW_BOX } from './desk-geometry';
 import {
+  airplaneFaces,
+  FLIGHT_DURATION,
+  type FlightStage,
+  flightDrawingAt,
+  NEXT_FLIGHT_STAGE,
+} from './envelope-flight';
+import {
   drawingAt,
   ENVELOPE,
+  LETTER_PULL_BOX,
   LETTER_ROWS,
   LETTER_WIDTH,
   LIFTED_BOX,
@@ -15,6 +23,7 @@ import {
 } from './envelope-pose';
 import type { Motion } from './reveal';
 import { canShareNatively, emailUrl, postOnXUrl, shareContent } from './share';
+import { useLetterPull } from './use-letter-pull';
 
 const { width: W, height: H, flap: F } = ENVELOPE;
 const R = 0.8;
@@ -33,6 +42,13 @@ const restingStyle = overlay(RESTING_BOX);
 const liftedStyle = overlay(LIFTED_BOX);
 /** The options sit inside the lifted letter's own overlay. */
 const optionStyles = OPTION_BOXES.map((box) => overlay(box, LIFTED_BOX));
+const pullStyle = overlay(LETTER_PULL_BOX, LIFTED_BOX);
+
+interface Flight {
+  readonly stage: FlightStage;
+  readonly elapsed: number;
+  readonly exitX: number;
+}
 
 type CopyState = 'idle' | 'copied' | 'failed';
 
@@ -59,7 +75,13 @@ interface EnvelopeProps {
 export function Envelope({ motion, quote }: EnvelopeProps) {
   const [{ phase, elapsed, from }, setClock] = useState<Clock>({ phase: 'open', elapsed: 0 });
   const [copy, setCopy] = useState<CopyState>('idle');
+  const copyTimer = useRef(0);
   const [raised, setRaised] = useState(false);
+  const [flight, setFlight] = useState<Flight | null>(null);
+  const flightRef = useRef(flight);
+  flightRef.current = flight;
+  const pull = useLetterPull(motion, phase === 'shown' && !flight);
+  const layerRef = useRef<SVGSVGElement>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +98,40 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
     }));
   const turnToRef = useRef(turnTo);
   turnToRef.current = turnTo;
+
+  useEffect(() => () => window.clearTimeout(copyTimer.current), []);
+
+  const flightStage = flight?.stage;
+  useEffect(() => {
+    if (!flightStage) return;
+    const next = NEXT_FLIGHT_STAGE[flightStage];
+    const advance = () =>
+      setFlight((current) => {
+        if (!current || current.stage !== flightStage) return current;
+        return next ? { ...current, stage: next, elapsed: 0 } : null;
+      });
+    if (flightStage === 'away') {
+      const timer = window.setTimeout(advance, FLIGHT_DURATION.away);
+      return () => window.clearTimeout(timer);
+    }
+    if (motion === 'reduced') {
+      advance();
+      return;
+    }
+    let frame = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - start;
+      if (elapsed >= FLIGHT_DURATION[flightStage]) {
+        advance();
+        return;
+      }
+      setFlight((current) => (current?.stage === flightStage ? { ...current, elapsed } : current));
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [flightStage, motion]);
 
   useEffect(() => {
     switch (phase) {
@@ -134,6 +190,12 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
       triggerRef.current?.focus();
     };
     const onScroll = () => {
+      if (flightRef.current) {
+        if (Math.abs(window.scrollY - scrollAtLift.current) <= SCROLL_SLOP) return;
+        setFlight(null);
+        setClock({ phase: 'open', elapsed: 0 });
+        return;
+      }
       const phase = phaseRef.current;
       if (phase !== 'lifting' && phase !== 'shown') return;
       if (Math.abs(window.scrollY - scrollAtLift.current) <= SCROLL_SLOP) return;
@@ -154,28 +216,50 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
     };
   }, []);
 
-  const { pose } = poseAt(phase, elapsed, from);
-  const onDesk = phase === 'open' || phase === 'opening';
-  const drawing = drawingAt(pose);
+  const flightDrawing = flight ? flightDrawingAt(flight.stage, flight.elapsed, flight.exitX) : null;
+  const planeFaces = flightDrawing?.plane ? airplaneFaces(flightDrawing) : [];
+  const pose = flightDrawing?.pose ?? poseAt(phase, elapsed, from).pose;
+  const onDesk = !flight && (phase === 'open' || phase === 'opening');
+  const drawing = drawingAt(
+    { ...pose, letter: pose.letter + pull.offset / ENVELOPE.letter.travel },
+    flightDrawing?.frame,
+  );
   const content = shareContent(window.location.origin, quote);
   const native = canShareNatively();
   const copyLabel = { idle: 'Copy link', copied: 'Link copied', failed: 'Couldn’t copy' }[copy];
   const labels = [copyLabel, 'Post on X', native ? 'More ways to share' : 'Send by email'];
 
   const copyLink = () => {
+    const report = (result: CopyState) => {
+      setCopy(result);
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopy('idle'), 5000);
+    };
     // Browsers leave the clipboard out of insecure contexts.
     const clipboard: Clipboard | undefined = navigator.clipboard;
     if (!clipboard) {
-      setCopy('failed');
+      report('failed');
       return;
     }
     clipboard.writeText(content.url).then(
-      () => setCopy('copied'),
-      () => setCopy('failed'),
+      () => report('copied'),
+      () => report('failed'),
     );
   };
   const shareNatively = () => {
     navigator.share({ title: 'SomeQuote', ...content }).catch(() => undefined);
+  };
+
+  const fly = () => {
+    const rect = layerRef.current?.getBoundingClientRect();
+    const scale = rect?.width ? rect.width / VIEW_BOX.width : 1;
+    const exitX = VIEW_BOX.x - (rect?.left ?? 0) / scale - 80;
+    setCopy('idle');
+    pull.reset();
+    setClock({ phase: 'open', elapsed: 0 });
+    scrollAtLift.current = window.scrollY;
+    setFlight({ stage: 'folding', elapsed: 0, exitX });
+    triggerRef.current?.focus({ preventScroll: true });
   };
 
   const flap = (
@@ -189,6 +273,7 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
   return (
     <>
       <svg
+        ref={layerRef}
         className="iso-svg envelope-layer"
         viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
         aria-hidden="true"
@@ -201,8 +286,13 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
             <rect transform={drawing.letter} width={LETTER_WIDTH} height={ENVELOPE.letter.height} />
           </clipPath>
         </defs>
-        <g className="envelope" data-raised={raised && phase === 'open' ? '' : undefined}>
-          {pose.lift > 0 && (
+        <g
+          className="envelope"
+          data-flight={flight?.stage}
+          visibility={flight?.stage === 'away' ? 'hidden' : undefined}
+          data-raised={raised && onDesk ? '' : undefined}
+        >
+          {!flight && pose.lift > 0 && (
             <g
               className="envelope-shadow"
               filter="url(#desk-halo)"
@@ -217,39 +307,72 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
               />
             </g>
           )}
-          {!drawing.flapOver && flap}
-          <g transform={drawing.letter}>
-            <rect
-              className="envelope-letter"
-              width={LETTER_WIDTH}
-              height={ENVELOPE.letter.height}
-              rx="0.5"
-            />
-            {labels.map((label, row) => {
-              const top = LETTER_ROWS.top + row * LETTER_ROWS.height;
-              return (
-                <g key={label}>
-                  {row > 0 && (
-                    <path className="envelope-rule" d={`M4 ${top}H${LETTER_WIDTH - 4}`} />
-                  )}
-                  <text
-                    className="envelope-writing"
-                    x={LETTER_WIDTH / 2}
-                    y={top + LETTER_ROWS.height / 2 + WRITING_SIZE * 0.3}
-                    fontSize={WRITING_SIZE}
-                  >
-                    {label}
-                  </text>
-                </g>
-              );
-            })}
+          {planeFaces.length > 0 && (
+            <g
+              className="envelope-shadow"
+              opacity={0.1 * (flightDrawing?.fold ?? 0)}
+              clipPath="url(#desk-top)"
+            >
+              {planeFaces.map(({ index, shadow }) => (
+                <path key={index} d={shadow} />
+              ))}
+            </g>
+          )}
+          <g opacity={1 - (flightDrawing?.fold ?? 0)}>
+            {!drawing.flapOver && flap}
+            <g transform={drawing.letter}>
+              <rect
+                className="envelope-letter"
+                width={LETTER_WIDTH}
+                height={ENVELOPE.letter.height}
+                rx="0.5"
+              />
+              <g
+                className="envelope-airplane-icon"
+                opacity={pull.ready ? 1 : 0}
+                transform={`translate(${LETTER_WIDTH / 2 - 3.5} 1.4)`}
+              >
+                <path d="M0 3.3L7 0L4.8 6.8L3 4.5L0 3.3ZM3 4.5L7 0M3 4.5L2.8 6.3L4 5.8" />
+              </g>
+              {!pull.ready && (
+                <path
+                  className="envelope-pull-mark"
+                  d={`M${LETTER_WIDTH / 2 - 2} 4.4h4M${LETTER_WIDTH / 2 - 1.4} 5.5h2.8`}
+                />
+              )}
+              {labels.map((label, row) => {
+                const top = LETTER_ROWS.top + row * LETTER_ROWS.height;
+                return (
+                  <g key={label}>
+                    {row > 0 && (
+                      <path className="envelope-rule" d={`M4 ${top}H${LETTER_WIDTH - 4}`} />
+                    )}
+                    <text
+                      className="envelope-writing"
+                      x={LETTER_WIDTH / 2}
+                      y={top + LETTER_ROWS.height / 2 + WRITING_SIZE * 0.3}
+                      fontSize={WRITING_SIZE}
+                    >
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+            <g transform={drawing.body} visibility={flightDrawing?.plane ? 'hidden' : undefined}>
+              <path className="envelope-paper" d={BODY} />
+              <path className="envelope-seam" d={SEAMS} />
+            </g>
+            {drawing.flapOver && flap}
           </g>
-          <g transform={drawing.body}>
-            <path className="envelope-paper" d={BODY} />
-            <path className="envelope-seam" d={SEAMS} />
-          </g>
-          {drawing.flapOver && flap}
-          {pose.lift < 1 && (
+          {flightDrawing?.plane && (
+            <g className="paper-airplane">
+              {planeFaces.map(({ index, d }) => (
+                <path key={index} data-panel={index} d={d} />
+              ))}
+            </g>
+          )}
+          {!flight && pose.lift < 1 && (
             <ellipse
               className="lamp-light lamp-pool"
               cx={LAMP_LIGHT.pool.cx}
@@ -285,44 +408,72 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
           className="envelope-card"
           style={liftedStyle}
           aria-label="Share SomeQuote"
+          {...pull.handlers}
         >
           <button
-            ref={firstOptionRef}
             type="button"
-            className="envelope-option"
-            style={optionStyles[0]}
-            onClick={copyLink}
+            className="envelope-pull"
+            style={{
+              ...pullStyle,
+              transform: `translateY(${(-pull.offset / LETTER_PULL_BOX.height) * 100 * ENVELOPE.lifted.scale}%)`,
+            }}
+            aria-label={
+              pull.ready ? 'Fly paper airplane' : 'Pull letter up to reveal a paper airplane'
+            }
+            onClick={() => (pull.ready ? fly() : pull.reveal())}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowUp') return;
+              event.preventDefault();
+              pull.reveal();
+            }}
+          />
+          <div
+            className="envelope-options"
+            style={{
+              transform: `translateY(${(-pull.offset / LIFTED_BOX.height) * 100 * ENVELOPE.lifted.scale}%)`,
+            }}
           >
-            <span className="visually-hidden">{labels[0]}</span>
-          </button>
-          <a
-            className="envelope-option"
-            style={optionStyles[1]}
-            href={postOnXUrl(content)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="visually-hidden">{labels[1]}</span>
-          </a>
-          {native ? (
             <button
+              ref={firstOptionRef}
               type="button"
               className="envelope-option"
-              style={optionStyles[2]}
-              onClick={shareNatively}
+              style={optionStyles[0]}
+              onClick={copyLink}
             >
-              <span className="visually-hidden">{labels[2]}</span>
+              <span className="visually-hidden">{labels[0]}</span>
             </button>
-          ) : (
-            <a className="envelope-option" style={optionStyles[2]} href={emailUrl(content)}>
-              <span className="visually-hidden">{labels[2]}</span>
+            <a
+              className="envelope-option"
+              style={optionStyles[1]}
+              href={postOnXUrl(content)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="visually-hidden">{labels[1]}</span>
             </a>
-          )}
+            {native ? (
+              <button
+                type="button"
+                className="envelope-option"
+                style={optionStyles[2]}
+                onClick={shareNatively}
+              >
+                <span className="visually-hidden">{labels[2]}</span>
+              </button>
+            ) : (
+              <a className="envelope-option" style={optionStyles[2]} href={emailUrl(content)}>
+                <span className="visually-hidden">{labels[2]}</span>
+              </a>
+            )}
+          </div>
           <p className="visually-hidden" role="status">
             {copy === 'idle' ? '' : copyLabel}
           </p>
         </section>
       )}
+      <p className="visually-hidden" role="status">
+        {flight ? 'The paper airplane is flying. It will return to the desk.' : ''}
+      </p>
     </>
   );
 }
