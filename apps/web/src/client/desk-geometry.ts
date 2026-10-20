@@ -153,7 +153,7 @@ function book(): Part[] {
   ];
 }
 
-const NOTE = { x: 20, y: -7, w: 56, d: 22, z: 0.5, turn: (4 * Math.PI) / 180 } as const;
+const NOTE = { x: 23, y: -7, w: 66, d: 22, z: 0.5, turn: (4 * Math.PI) / 180 } as const;
 const noteU: Vec3 = [Math.cos(NOTE.turn), Math.sin(NOTE.turn), 0];
 const noteV: Vec3 = [-Math.sin(NOTE.turn), Math.cos(NOTE.turn), 0];
 const noteAt = (u: number, v: number, z: number): Vec3 =>
@@ -176,6 +176,12 @@ function note(): Part[] {
     },
   ];
 }
+
+/** Where the share envelope lies: front left, clear of the lamp's foot and the book. */
+export const ENVELOPE_SPOT = {
+  center: [-80, 30, 0.3] satisfies Vec3,
+  turn: (-7 * Math.PI) / 180,
+} as const;
 
 const LAMP_AT = { x: -50, y: -14 } as const;
 const FOOT: Plan = { x: LAMP_AT.x - 27, y: LAMP_AT.y - 19, w: 54, d: 30, r: 6 };
@@ -346,3 +352,16 @@ export const VIEW_BOX = boxOf(
   ].map(project),
   8,
 );
+
+/** Places an HTML overlay over a region of the drawing given in viewBox units, within `frame`. */
+export function overlay(
+  { x, y, width, height }: ReturnType<typeof boxOf>,
+  frame: ReturnType<typeof boxOf> = VIEW_BOX,
+) {
+  return {
+    left: `${((x - frame.x) / frame.width) * 100}%`,
+    top: `${((y - frame.y) / frame.height) * 100}%`,
+    width: `${(width / frame.width) * 100}%`,
+    height: `${(height / frame.height) * 100}%`,
+  };
+}

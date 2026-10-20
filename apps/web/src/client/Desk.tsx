@@ -1,4 +1,5 @@
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import type { QuoteDto } from '../shared/api-contract';
 import { currentColorScheme, switchColorScheme, useColorScheme } from './color-scheme';
 import { CORD, Cord } from './cord';
 import {
@@ -6,11 +7,13 @@ import {
   DESK_PARTS,
   LAMP_BOX,
   LAMP_LIGHT,
+  overlay,
   type Part,
   type Point,
   type Tone,
   VIEW_BOX,
 } from './desk-geometry';
+import { Envelope } from './Envelope';
 import { FlipClock, FlipClockDefs } from './FlipClock';
 import type { SolidPaths } from './iso';
 import type { Motion } from './reveal';
@@ -18,16 +21,6 @@ import type { Motion } from './reveal';
 /** Movement beyond this many CSS pixels turns a press on the cord into a pull rather than a click. */
 const DRAG_SLOP_PX = 4;
 const CLICK_SUPPRESSION_MS = 400;
-
-/** Places an overlay over a region of the drawing given in viewBox units. */
-function overlay({ x, y, width, height }: { x: number; y: number; width: number; height: number }) {
-  return {
-    left: `${((x - VIEW_BOX.x) / VIEW_BOX.width) * 100}%`,
-    top: `${((y - VIEW_BOX.y) / VIEW_BOX.height) * 100}%`,
-    width: `${(width / VIEW_BOX.width) * 100}%`,
-    height: `${(height / VIEW_BOX.height) * 100}%`,
-  } satisfies CSSProperties;
-}
 
 const lampSwitchStyle = overlay(LAMP_BOX);
 /** The part of the drawing that grabs the cord instead of scrolling the page on touch screens. */
@@ -133,14 +126,16 @@ function cordPath(links: readonly Point[]): string {
 interface DeskProps {
   readonly remainingMs: number;
   readonly motion: Motion;
+  /** Today's quote, for the message the envelope shares, once it has loaded. */
+  readonly quote: QuoteDto | undefined;
 }
 
 /**
- * A writer's desk with a banker's lamp and a flip clock. The lamp switches the color scheme (lit is
+ * A writer's desk with a banker's lamp, a flip clock, and an envelope for sharing. The lamp switches the color scheme (lit is
  * light mode): click it, or pull its cord, which a mouse pointer can also brush and swing. The clock
  * counts down to the next quote.
  */
-export function Desk({ remainingMs, motion }: DeskProps) {
+export function Desk({ remainingMs, motion, quote }: DeskProps) {
   const scheme = useColorScheme();
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -326,6 +321,7 @@ export function Desk({ remainingMs, motion }: DeskProps) {
         aria-label={lit ? 'Turn the lamp off (dark mode)' : 'Turn the lamp on (light mode)'}
       />
       <span ref={zoneRef} className="lamp-cord-zone" style={cordZoneStyle} aria-hidden="true" />
+      <Envelope motion={motion} quote={quote} />
     </div>
   );
 }

@@ -38,9 +38,13 @@ export function App({ load }: { load?: typeof fetchTodayPublication }) {
           <div className="page-footer" aria-hidden="true" />
         </div>
       </div>
-      <aside className="scene scene-lamp" aria-label="Desk lamp and the next quote">
+      <aside className="scene scene-lamp" aria-label="Desk lamp, the next quote, and sharing">
         <div className="lamp-stage">
-          <Desk remainingMs={remaining} motion={reducedMotion ? 'reduced' : 'full'} />
+          <Desk
+            remainingMs={remaining}
+            motion={reducedMotion ? 'reduced' : 'full'}
+            quote={state.kind === 'ready' ? state.publication.quote : undefined}
+          />
         </div>
         <p className="visually-hidden" role="timer">
           {formatCountdown(remaining)} until the next quote

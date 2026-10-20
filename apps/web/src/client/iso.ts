@@ -36,6 +36,14 @@ const SIN_E = Math.sin(ELEVATION);
 const COS_E = Math.cos(ELEVATION);
 const SHADES = 4;
 const TOWARD_VIEWER: Vec3 = [COS_A * COS_E, SIN_A * COS_E, SIN_E];
+
+/** World directions that project to the screen's right, its down, and straight out at the reader. */
+export const SCREEN = {
+  right: [SIN_A, -COS_A, 0] satisfies Vec3,
+  down: [COS_A * SIN_E, SIN_A * SIN_E, -COS_E] satisfies Vec3,
+  out: TOWARD_VIEWER,
+} as const;
+
 const LIGHT = normalize([-SIN_A, COS_A, 0.35]);
 
 export function project([x, y, z]: Vec3): Point {
@@ -318,4 +326,4 @@ export function planeMatrix(origin: Vec3, u: Vec3, v: Vec3): string {
   return `matrix(${f(pu.x)} ${f(pu.y)} ${f(pv.x)} ${f(pv.y)} ${f(o.x)} ${f(o.y)})`;
 }
 
-export const vec = { add, scale } as const;
+export const vec = { add, sub, scale, dot, cross, normalize } as const;

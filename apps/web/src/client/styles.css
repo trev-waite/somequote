@@ -545,6 +545,7 @@ body {
 /* Touches here pull the cord; everywhere else on the lamp they scroll the page. */
 .lamp-cord-zone {
   position: absolute;
+  z-index: 1;
   touch-action: none;
   cursor: grab;
 }
@@ -557,6 +558,102 @@ body {
   fill: var(--iso-hi);
   font-family: var(--font-quote);
   text-anchor: middle;
+}
+
+/*
+ * The share envelope draws in its own layer over the desk, so it can lift clear of everything on it.
+ * Compositing it separately means each frame of its moves repaints only the envelope, even while
+ * the scene handoff is transforming and blurring the stage around it.
+ */
+.envelope-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.envelope {
+  transition: transform 180ms var(--ease-reveal);
+}
+
+.envelope[data-raised] {
+  transform: translateY(-1.5px);
+}
+
+.envelope-shadow {
+  fill: var(--iso-halo);
+}
+
+.envelope-paper,
+.envelope-flap,
+.envelope-letter {
+  stroke: var(--iso-hi);
+  stroke-width: var(--iso-weight);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.envelope-paper,
+.envelope-flap[data-side="outside"] {
+  fill: var(--iso-face);
+}
+
+.envelope-flap[data-side="inside"] {
+  fill: var(--iso-shade-2);
+}
+
+.envelope-letter {
+  fill: var(--iso-top);
+  stroke: var(--iso-mid);
+}
+
+.envelope-seam,
+.envelope-rule {
+  fill: none;
+  stroke: var(--iso-lo);
+  stroke-width: var(--iso-weight);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.envelope-rule {
+  stroke: var(--iso-faint);
+}
+
+.envelope-writing {
+  fill: var(--iso-hi);
+  font-family: var(--font-quote);
+  text-anchor: middle;
+}
+
+/* Transparent controls over the drawing, like the lamp switch. */
+.envelope-trigger,
+.envelope-option {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--space-1);
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.envelope-trigger[aria-disabled="true"] {
+  cursor: default;
+}
+
+/* The cord's zone overlaps the resting envelope's box and wins there; the lifted letter is above both. */
+.envelope-card {
+  position: absolute;
+  z-index: 2;
+}
+
+.envelope-option:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 /*

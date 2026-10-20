@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 function showDesk(pointerType = 'mouse') {
-  const view = render(<Desk remainingMs={100_000} motion="full" />);
+  const view = render(<Desk remainingMs={100_000} motion="full" quote={undefined} />);
   cleanup = view.unmount;
   const svg = view.container.querySelector('svg');
   const zone = view.container.querySelector<HTMLSpanElement>('.lamp-cord-zone');
