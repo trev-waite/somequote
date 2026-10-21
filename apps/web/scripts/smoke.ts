@@ -31,7 +31,8 @@ async function get(path: string): Promise<Response> {
 async function check(): Promise<string> {
   const page = await get('/');
   const html = await page.text();
-  if (!page.headers.get('Content-Security-Policy')?.includes("script-src 'self'")) {
+  const policy = page.headers.get('Content-Security-Policy') ?? '';
+  if (!policy.includes("script-src 'self' 'sha384-")) {
     throw new Error('/: missing Content-Security-Policy');
   }
   const bundle = /<script type="module"[^>]* src="(\/assets\/[^"]+\.js)"/.exec(html)?.[1];

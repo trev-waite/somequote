@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { expect, type Page, test } from '@playwright/test';
 import { PublicationDto } from '../src/shared/api-contract';
 
@@ -40,7 +41,7 @@ test('shows today’s quote under the production headers without browser errors'
   const response = await page.goto('/');
 
   const headers = response?.headers() ?? {};
-  expect(headers['content-security-policy']).toContain("script-src 'self'");
+  expect(headers['content-security-policy']).toContain("script-src 'self' 'sha384-");
   expect(headers['strict-transport-security']).toBe('max-age=63072000; includeSubDomains');
   expect(headers['x-content-type-options']).toBe('nosniff');
   await expect(page.locator('blockquote .visually-hidden')).toHaveText(`“${quote.text}”`);
@@ -51,14 +52,89 @@ test('shows today’s quote under the production headers without browser errors'
   expect(problems).toEqual([]);
 });
 
+test('authorizes the built scripts with matching hashes and integrity', async ({
+  page,
+  request,
+}) => {
+  const response = await page.goto('/');
+  const policy = response?.headers()['content-security-policy'] ?? '';
+  const scripts = await page.locator('script').evaluateAll((elements) =>
+    elements.map((script) => ({
+      src: script.getAttribute('src'),
+      text: script.textContent ?? '',
+      integrity: script.getAttribute('integrity'),
+    })),
+  );
+  expect(scripts).toHaveLength(2);
+  for (const script of scripts) {
+    const content = script.src ? await (await request.get(script.src)).body() : script.text;
+    const hash = `sha384-${createHash('sha384').update(content).digest('base64')}`;
+    expect(policy).toContain(`'${hash}'`);
+    if (script.src) expect(script.integrity).toBe(hash);
+  }
+});
+
+test('blocks an injected inline script under the production policy', async ({ page }) => {
+  await page.route('**/', async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    await route.fulfill({
+      response,
+      body: html.replace('<head>', '<head><script>window.untrustedScriptRan = true</script>'),
+    });
+  });
+  await page.goto('/');
+  await expect(page.locator('blockquote')).toBeVisible();
+  expect(await page.evaluate(() => Reflect.get(window, 'untrustedScriptRan'))).toBeUndefined();
+});
+
+test('rejects modified app bytes through Subresource Integrity', async ({ page }) => {
+  const rejected = page.waitForEvent(
+    'console',
+    (message) => message.type() === 'error' && /integrity/i.test(message.text()),
+  );
+  await page.route('**/assets/index-*.js', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body: `${await response.text()}\nwindow.modifiedBundleRan = true;`,
+    });
+  });
+  await page.goto('/');
+  await rejected;
+  expect(await page.evaluate(() => Reflect.get(window, 'modifiedBundleRan'))).toBeUndefined();
+  await expect(page.locator('blockquote')).toHaveCount(0);
+});
+
+test('shows the quote before requesting the desk and survives a failed desk download', async ({
+  page,
+}) => {
+  let quoteMountedAtRequest = false;
+  await page.route('**/assets/Desk-*.js', async (route) => {
+    quoteMountedAtRequest = (await page.locator('blockquote').count()) === 1;
+    await route.abort('failed');
+  });
+  await page.goto('/');
+  await expect(page.locator('blockquote')).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('The desk couldn’t be loaded.');
+  expect(quoteMountedAtRequest).toBe(true);
+  await expect(page.locator('blockquote')).toBeVisible();
+  await page.unroute('**/assets/Desk-*.js');
+  await page.getByRole('button', { name: 'Reload' }).click();
+  await expect(page.locator('.desk')).toBeAttached();
+  await expect(page.locator('blockquote')).toBeVisible();
+});
+
 test('requests today’s quote once, in parallel with the bundle', async ({ page }) => {
   const problems = browserProblems(page);
   page.on('console', (message) => {
     if (message.type() === 'warning') problems.push(`console warning: ${message.text()}`);
   });
   const quoteRequests: string[] = [];
+  const themeRequests: string[] = [];
   page.on('request', (request) => {
     if (new URL(request.url()).pathname === '/api/quote/today') quoteRequests.push(request.url());
+    if (new URL(request.url()).pathname === '/color-scheme.js') themeRequests.push(request.url());
   });
 
   await page.goto('/');
@@ -66,7 +142,31 @@ test('requests today’s quote once, in parallel with the bundle', async ({ page
   await page.waitForTimeout(3500);
 
   expect(quoteRequests).toHaveLength(1);
+  expect(themeRequests).toEqual([]);
   expect(problems).toEqual([]);
+});
+
+test('loads the desk on early scrolling while the quote request is still pending', async ({
+  page,
+}) => {
+  let release = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/quote/today', async (route) => {
+    await pending;
+    await route.continue();
+  });
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.scene-lamp')).toBeAttached();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(page.locator('.desk')).toBeAttached();
+    await expect(page.locator('blockquote')).toHaveCount(0);
+  } finally {
+    release();
+  }
+  await expect(page.locator('blockquote')).toBeAttached();
 });
 
 test('has a social preview card with a published image', async ({ page, request }) => {

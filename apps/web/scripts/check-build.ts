@@ -18,12 +18,13 @@ const PUBLIC_FILES = [
   /^favicon\.svg$/,
   /^og-image\.png$/,
   /^color-scheme\.js$/,
-  /^assets\/index-[\w-]+\.(?:js|css)$/,
+  /^assets\/(?:index|Desk)-[\w-]+\.(?:js|css)$/,
   /^fonts\/[\w-]+\.(?:woff2|txt)$/,
 ];
 
 /** Raise a budget deliberately, in the same change that needs it. */
 const GZIP_BUDGETS = { js: 110_000, css: 6_000 };
+const INITIAL_JS_BUDGET = 85_000;
 
 /** `.assetsignore` keeps the generated Worker config and local secrets out of public assets. */
 const REQUIRED_IGNORES = ['wrangler.json', '.dev.vars'];
@@ -36,6 +37,24 @@ function filesIn(directory: string, prefix = ''): string[] {
 }
 
 const problems: string[] = [];
+const html = readFileSync(`${CLIENT}index.html`, 'utf8');
+const initialScripts = new Set(
+  [...html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="(\/assets\/[\w-]+\.js)"/g)].map(
+    (match) => match[1]?.slice(1) ?? '',
+  ),
+);
+if (initialScripts.size === 0) problems.push('no initial JavaScript in HTML');
+const initialBytes = [...initialScripts].reduce(
+  (sum, path) => sum + gzipSync(readFileSync(CLIENT + path)).length,
+  0,
+);
+console.log(`initial js: ${initialBytes} gzipped (budget ${INITIAL_JS_BUDGET})`);
+if (initialBytes > INITIAL_JS_BUDGET) {
+  problems.push(`initial js is ${initialBytes} bytes gzipped, over ${INITIAL_JS_BUDGET}`);
+}
+if (!readFileSync(`${CLIENT}_headers`, 'utf8').includes("script-src 'self' 'sha384-")) {
+  problems.push('missing generated hash-based script policy');
+}
 
 const ignorePath = `${CLIENT}.assetsignore`;
 const ignored = existsSync(ignorePath) ? readFileSync(ignorePath, 'utf8').split('\n') : [];

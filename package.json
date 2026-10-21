@@ -16,6 +16,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run build && bun run --cwd apps/web test:e2e",
+    "benchmark:browser": "turbo run build && bun run --cwd apps/web benchmark",
     "preview": "turbo run preview",
     "db:migrate:local": "bun run --cwd apps/web db:migrate:local",
     "db:seed:local": "bun run --cwd apps/web db:seed:local",

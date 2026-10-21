@@ -5,6 +5,8 @@ import { App } from './App';
 import { type fetchTodayPublication, TodayQuoteUnavailableError } from './api';
 import { preferReducedMotion, render } from './test-render';
 
+vi.mock('./DeferredDesk', () => ({ DeferredDesk: () => null }));
+
 const publication = PublicationDto.parse({
   date: '2026-10-18',
   quote: {
@@ -63,22 +65,6 @@ describe('App', () => {
     await settle();
 
     expect(view.container.querySelector('article')?.getAttribute('data-motion')).toBe('fade');
-  });
-
-  it('switches between light and dark mode from the lamp', () => {
-    const view = render(<App load={() => new Promise(() => undefined)} />);
-    cleanup = view.unmount;
-    const lamp = () => view.container.querySelector<HTMLButtonElement>('.lamp-switch');
-    const before = document.documentElement.dataset.colorScheme ?? 'light';
-
-    act(() => lamp()?.click());
-
-    expect(document.documentElement.dataset.colorScheme).toBe(
-      before === 'light' ? 'dark' : 'light',
-    );
-    expect(lamp()?.getAttribute('aria-label')).toContain(
-      before === 'light' ? 'light mode' : 'dark mode',
-    );
   });
 
   it('counts down to the next quote', () => {

@@ -1,6 +1,7 @@
 # Applied by Workers Static Assets to static responses (build, preview, deploy; not `vite dev`).
 # API responses set their own headers in src/worker/app.ts. Keep HSTS identical in both; the zone's
 # own HSTS setting stays off (scripts/configure-zone.ts) so responses carry a single header.
+# Production builds replace script-src with hashes of the final scripts (scripts/secure-html.ts).
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff

@@ -17,8 +17,13 @@ export function quoteFontReady(): Promise<void> {
     () => undefined,
     () => undefined,
   );
-  const limit = new Promise<void>((resolve) => setTimeout(resolve, FONT_WAIT_LIMIT_MS));
-  return Promise.race([loaded, limit]);
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, FONT_WAIT_LIMIT_MS);
+    loaded.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 // Poll for about an hour, backing off to stay below the API rate limit.

@@ -20,8 +20,9 @@ bun run dev                 # http://localhost:5173
 | Command | What it does |
 | --- | --- |
 | `bun run dev` | Vite dev server running the Worker in `workerd`, with local D1 |
-| `bun run build` | Production build of the client assets and Worker (`apps/web/dist`), then the public-asset allowlist and size budgets |
+| `bun run build` | Production build (`apps/web/dist`), generated script hashes/integrity, public-asset allowlist, and size budgets |
 | `bun run test:e2e` | Builds, then runs the Playwright smoke tests against `vite preview` of the build |
+| `bun run benchmark:browser` | Builds, then measures startup, scrolling, and magnifier interactions in Chromium and WebKit |
 | `bun run preview` | Serves the production build locally, including `_headers` |
 | `bun run lint` / `bun run format` | Biome check / fix |
 | `bun run typecheck` | TypeScript for every package; fails if generated Worker types are stale |
@@ -49,6 +50,18 @@ apps/web           the deployable Worker
 ```
 
 The domain package is plain TypeScript with no dependencies; everything platform-specific sits at the edges. See [AGENTS.md](AGENTS.md) for module ownership, invariants, and conventions.
+
+### Loading and browser performance
+
+The HTML preloads today's JSON and the 27 kB quote font in parallel with the app. The quote renders before the desk module is requested; the desk loads after the quote's first paint, or when its scene enters the viewport. Initial JavaScript has an 85 kB gzip budget, alongside the 110 kB total JavaScript and 6 kB CSS budgets. The word-by-word reveal is intentional animation, measured separately from data availability.
+
+The build inlines the small theme bootstrap to avoid a blocking request, generates its CSP hash, and gives the app entry a SHA-384 integrity attribute. Same-origin script permission remains for imported modules; this is not a hash-only strict CSP. HTML remains static and cacheable, with no nonce generation or Worker invocation for page delivery.
+
+Install the benchmark engines once with `cd apps/web && bunx playwright install chromium webkit`, then run `bun run benchmark:browser` from the repository root. Measurements and raw samples are saved in `apps/web/benchmark-results/`; CI uploads them as `browser-benchmarks` artifacts. Run on an otherwise idle machine for useful comparisons.
+
+The benchmark uses one worker and no retries. It records three cold/warm HTTP-cache startup pairs in Chromium, three cold loads in WebKit, and three samples per idle/dragging phase. A Chromium profile adds 100 ms network latency, 1.6 Mbps download throughput, and 4× CPU throttling. The local preview transfers uncompressed assets, so those network measurements are conservative and do not represent Cloudflare production latency. WebKit needs an HTTP-only test shim that removes `upgrade-insecure-requests`; routing disables its cache/preload reuse, so warm-cache measurements and the single-request assertion run only in Chromium. All other production CSP directives remain active.
+
+Elapsed times, frame intervals, and Chromium CPU metrics are diagnostic: CI does not fail on FPS or millisecond thresholds. Failures instead catch repeatable regressions: duplicate quote requests, a quote request delayed until after the entry bundle, excessive DOM construction before the quote, SVG geometry changes or repeated matrix reads during settled dragging, and missing compositor settings. The normal browser suite checks the scroll curve and endpoints. This guards known costly behavior without treating a busy runner or a different refresh rate as an app regression.
 
 **Request flow.** `GET /` is served from static assets without invoking the Worker. The page requests `GET /api/quote/today`; its browser reuses a fresh HTTP response when available. Requests reaching the Worker pass an IP rate limit, then look in Cloudflare's shared Cache API. On a cache miss, the Worker computes today's Eastern date and calls `ensurePublication`, which returns the stored publication or selects and records one. The cron does the same at midnight, so the first visitor of the day normally reads an existing row. Shared cache hits skip D1 entirely.
 
@@ -82,9 +95,9 @@ Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_fou
 
 ## Content
 
-`packages/content` holds 192 quotes: 150 general quotes and 42 verses (about 78/22; the published mix is held at 80/20 by the rotation).
+`packages/content` holds 212 quotes: 170 general quotes and 42 verses (about 80/20; the published mix is held at 80/20 by the rotation).
 
-- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 192 quotes against 60 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
+- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 212 quotes against 64 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
 - **Avoided misattributions.** Popular versions that do not match their sources were replaced with the authentic text. For example, Thoreau's "advances confidently in the direction of his dreams", Keller's "nothing can be done without hope" (no "and confidence"), Tolstoy's "patience and time", and Goethe's "a little song" (not "music").
 - **Licensing.** General quotes come from works in the public domain in the United States (published before 1931, including the translations used: Long, Legge, Müller, Gummere, Jowett, Chase, Hapgood, Maude, Carlyle, and the Kelloggs). Some translators and authors died less than 70 years ago, so a few texts may still be under copyright in other jurisdictions; they appear here as short, attributed quotations. Verses are exact excerpts of the [World English Bible](https://worldenglish.bible) (public domain; "World English Bible" is a trademark of eBible.org, and excerpts are never altered so the name stays accurate).
 - **Seeding.** `bun run db:seed:local` upserts every quote by id and disables quotes removed from the collection. History is never touched, and a quote's category cannot change.
@@ -130,7 +143,7 @@ Three workflows in `.github/workflows`:
 | Job | Checks |
 | --- | --- |
 | Lint, typecheck, test | Applied migrations unchanged (only new `000N_*.sql` files); [actionlint](https://github.com/rhysd/actionlint) and shellcheck on the workflows; `biome ci`; typecheck; every Vitest suite. PRs also run `bun audit` (high and critical), and `content:verify-sources` when `packages/content` changes (source texts are cached by `sources.ts`). |
-| Build and browser smoke tests | Production build; `scripts/check-build.ts` (only expected files become public assets, `.assetsignore` keeps `wrangler.json` and `.dev.vars` private, and JS/CSS stay within gzip budgets); Playwright in Chromium at desktop and mobile sizes against `vite preview` of that build with a migrated, seeded local D1 (today's quote renders with the production headers and font, with no console errors, CSP violations, or failed requests; no horizontal overflow; the lamp's color scheme survives a reload; bundles are immutable). |
+| Build and browser smoke tests | Production build, generated CSP hashes/integrity, public-asset allowlist, and initial/total JS/CSS budgets. Chromium tests at desktop and mobile sizes cover quote loading, headers, script integrity, injected-script rejection, deferred-desk failures, scroll continuity, the lamp, and caching. Serial Chromium/WebKit benchmarks guard expensive work and upload diagnostic measurements. |
 | Deploy (merges to `main` only) | Skips a commit that is no longer the head of `main`, so re-running an old workflow can't roll production back. Downloads the build the jobs above tested, applies D1 migrations, syncs the collection (`db:seed:remote`), deploys with the commit as the version message and tag, then smoke-tests `https://somequote.com` (`scripts/smoke.ts`: page, bundle, and API contract with the production headers). If the smoke test fails, it rolls the Worker back once to the version that was live before, then reports whether production recovered. If the Worker already exists and that version can't be read, it doesn't deploy. Only the first deploy, when Cloudflare's list of Workers has no `somequote`, goes ahead without a version to roll back to. Migrations stay applied, which is safe because they are append-only. Deploys run one at a time. |
 
 **The rollback can't loop.**

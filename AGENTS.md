@@ -41,6 +41,7 @@ Dependency direction is one way: `client → shared → domain`, `worker → dom
 ```bash
 bun run lint && bun run typecheck && bun run test && bun run test:e2e   # test:e2e builds first
 bun run content:verify-sources   # network: re-checks every quote against its source text
+bun run benchmark:browser       # Chromium + WebKit: diagnostic timing, deterministic work guards
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above plus workflow linting and a check that applied migrations are unchanged; merging to `main` deploys the tested build. `secrets.yml` scans every push to any branch or tag; keep it free of path filters and of a `concurrency` group (GitHub cancels queued runs in a group even without `cancel-in-progress`), or a skipped push's commits are never scanned. `zone.yml` applies zone settings only when `configure-zone.ts` changes. Action versions are pinned to commit SHAs; actionlint is pinned with a SHA-256 checksum. Add a rule to `tools/secret-scan/src/secrets.ts` when the project starts using a new kind of credential. Workflows never get write permissions, push, or dispatch runs (`deployment-config.test.ts`), which is what keeps the automatic rollback from looping. If a build legitimately exceeds a size budget, raise it in `apps/web/scripts/check-build.ts` in the same change.

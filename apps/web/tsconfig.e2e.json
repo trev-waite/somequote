@@ -5,5 +5,5 @@
     "lib": ["es2024", "dom", "dom.iterable"],
     "types": ["node"]
   },
-  "include": ["e2e", "playwright.config.ts", "src/shared"]
+  "include": ["e2e", "benchmarks", "playwright*.config.ts", "src/shared"]
 }
