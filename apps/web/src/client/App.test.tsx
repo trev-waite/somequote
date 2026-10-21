@@ -2,7 +2,7 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicationDto } from '../shared/api-contract';
 import { App } from './App';
-import { TodayQuoteUnavailableError } from './api';
+import { type fetchTodayPublication, TodayQuoteUnavailableError } from './api';
 import { preferReducedMotion, render } from './test-render';
 
 const publication = PublicationDto.parse({
@@ -88,6 +88,49 @@ describe('App', () => {
     expect(view.container.querySelector('[role="timer"]')?.textContent).toMatch(
       /^\d{2}:\d{2}:\d{2} until the next quote$/,
     );
+  });
+
+  it('keeps checking past midnight until the server has published the next quote', async () => {
+    vi.useFakeTimers();
+    try {
+      // 23:59:50 in New York on 2026-10-18, by this device's clock.
+      vi.setSystemTime(new Date('2026-10-19T03:59:50Z'));
+      const next = PublicationDto.parse({
+        date: '2026-10-19',
+        quote: { ...publication.quote, id: 'next-quote', text: 'A new day.' },
+      });
+      // The device clock runs ahead of the server's, so the first check still gets yesterday.
+      const load = vi
+        .fn<typeof fetchTodayPublication>()
+        .mockResolvedValueOnce(publication)
+        .mockResolvedValueOnce(publication)
+        .mockRejectedValueOnce(new TodayQuoteUnavailableError('offline'))
+        .mockResolvedValueOnce(next);
+      const view = render(<App load={load} />);
+      cleanup = view.unmount;
+      const shownText = () =>
+        view.container.querySelector('blockquote .visually-hidden')?.textContent;
+      const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+      await advance(3000);
+      expect(shownText()).toBe(`“${publication.quote.text}”`);
+
+      await advance(7100);
+      expect(load).toHaveBeenCalledTimes(2);
+      expect(load).toHaveBeenLastCalledWith(expect.any(AbortSignal), { fresh: true });
+      expect(shownText()).toBe(`“${publication.quote.text}”`);
+
+      await advance(2000);
+      expect(load).toHaveBeenCalledTimes(3);
+      expect(shownText()).toBe(`“${publication.quote.text}”`);
+      expect(view.container.querySelector('[role="alert"]')).toBeNull();
+
+      await advance(5000);
+      expect(load).toHaveBeenCalledTimes(4);
+      expect(shownText()).toBe('“A new day.”');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('offers a retry when the quote cannot be loaded, and recovers', async () => {

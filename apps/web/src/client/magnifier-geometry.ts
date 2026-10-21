@@ -17,8 +17,6 @@ export const MAGNIFIER = {
   cap: { length: 0.9, radius: 1.3 },
   /** Held up, it is this many times nearer and larger, its handle angled down to the right. */
   held: { size: 3.4, angle: (52 * Math.PI) / 180, magnification: 2.3 },
-  /** Lying on the desk, the glass is too close to what is under it to magnify much. */
-  restMagnification: 1.12,
   liftMs: 280,
   dropMs: 340,
 } as const;
@@ -102,6 +100,37 @@ export function magnifierFrameAt(lift: number, lens: Point): MagnifierFrame {
   };
 }
 
+const cross = (o: Point, a: Point, b: Point) =>
+  (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+/** The part of convex polygon `subject` inside convex polygon `clip` (Sutherland–Hodgman). */
+function overlap(subject: readonly Point[], clip: readonly Point[]): Point[] {
+  const turn = Math.sign(
+    clip.reduce((sum, p, i) => sum + cross({ x: 0, y: 0 }, p, clip[(i + 1) % clip.length] ?? p), 0),
+  );
+  let result = [...subject];
+  clip.forEach((a, i) => {
+    const b = clip[(i + 1) % clip.length] ?? a;
+    const inside = (p: Point) => turn * cross(a, b, p) >= -1e-9;
+    const meet = (p: Point, q: Point): Point => {
+      const t = cross(a, b, p) / (cross(a, b, p) - cross(a, b, q));
+      return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
+    };
+    const input = result;
+    result = [];
+    input.forEach((current, j) => {
+      const previous = input[(j + input.length - 1) % input.length] ?? current;
+      if (inside(current)) {
+        if (!inside(previous)) result.push(meet(previous, current));
+        result.push(current);
+      } else if (inside(previous)) {
+        result.push(meet(previous, current));
+      }
+    });
+  });
+  return result;
+}
+
 export interface MagnifierDrawing {
   /** A soft shadow cast on the desk below a raised glass. */
   readonly shadow: { readonly d: string; readonly opacity: number } | undefined;
@@ -110,8 +139,9 @@ export interface MagnifierDrawing {
     /** The opening on the near face of the rim, and on its far face: through both is the lens. */
     readonly near: string;
     readonly far: string;
+    /** Where the near and far openings overlap: what can be seen through the glass. */
+    readonly opening: readonly Point[];
     readonly center: Point;
-    readonly magnification: number;
   };
   readonly glints: readonly string[];
   readonly handle: readonly MagnifierPart[];
@@ -175,10 +205,8 @@ export function magnifierDrawingAt(frame: MagnifierFrame, lift: number): Magnifi
     lens: {
       near: line(ring(INNER, T / 2), true),
       far: line(ring(INNER, -T / 2), true),
+      opening: overlap(ring(INNER, T / 2).map(project), ring(INNER, -T / 2).map(project)),
       center: project(at(0, 0, T / 2)),
-      magnification:
-        MAGNIFIER.restMagnification +
-        (MAGNIFIER.held.magnification - MAGNIFIER.restMagnification) * e,
     },
     glints: [arc(INNER * 0.78, 2.5, 3.35), arc(INNER * 0.78, 3.6, 3.78)],
     handle: [

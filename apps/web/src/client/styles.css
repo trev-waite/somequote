@@ -734,11 +734,31 @@ body {
   background: none;
 }
 
-/* The magnifying glass: a rim and handle like the desk's solids, round a lens onto the drawing. */
-.magnifier-layer {
+/* Separate compositor layers avoid repainting the magnified SVG during dragging in WebKit. */
+.magnifier-layer,
+.magnifier-held,
+.magnifier-part,
+.magnifier-lens {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+.magnifier-held {
+  will-change: transform;
+}
+
+.magnifier-lens {
+  overflow: hidden;
+  background-color: var(--paper);
+}
+
+.magnifier-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  will-change: transform;
 }
 
 .magnifier-shadow {
@@ -747,10 +767,6 @@ body {
 
 .magnifier-wall {
   fill: var(--iso-shade-1);
-}
-
-.magnifier-backdrop {
-  fill: var(--paper);
 }
 
 .magnifier-glass {
@@ -793,6 +809,7 @@ body {
 
 .magnifier-grip[data-held] {
   z-index: 3;
+  will-change: transform;
 }
 
 .magnifier-grip:active {
@@ -804,11 +821,14 @@ body {
   background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
-/*
- * The share envelope draws in its own layer over the desk, so it can lift clear of everything on it.
- * Compositing it separately means each frame of its moves repaints only the envelope, even while
- * the scene handoff is transforming and blurring the stage around it.
- */
+.clock-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Composite the envelope separately so lifting it does not repaint the desk. */
 .envelope-layer {
   position: absolute;
   inset: 0;
@@ -955,8 +975,8 @@ body {
 }
 
 /*
- * Scene handoff. Scrolling down, the quote recedes into depth while the lamp grows into the centre;
- * scrolling up plays the same tracks backwards. Scroll snapping settles whichever scene is nearer.
+ * Keep the desk composited without filters, which would flatten its independent layers.
+ * Leave both tracks unfilled: WebKit otherwise restyles their end states every frame at rest.
  */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
@@ -969,13 +989,14 @@ body {
     }
 
     .scene-content {
-      animation: scene-recede linear both;
+      animation: scene-recede cubic-bezier(0.45, 0, 0.55, 1);
       animation-timeline: --quote-scene;
       animation-range: exit 0% exit 100%;
     }
 
     .lamp-stage {
-      animation: lamp-arrive linear both;
+      transform: translateZ(0);
+      animation: lamp-arrive cubic-bezier(0.45, 0, 0.55, 1);
       animation-timeline: --lamp-scene;
       animation-range: entry 0% entry 100%;
     }
@@ -995,15 +1016,13 @@ body {
 @keyframes lamp-arrive {
   from {
     opacity: 0;
-    transform: translateY(calc(var(--scene-height) * -0.4)) scale(0.55);
-    filter: blur(8px);
+    transform: translate3d(0, calc(var(--scene-height) * -0.4), 0) scale(0.55);
   }
   35% {
     opacity: 0;
   }
   to {
     opacity: 1;
-    transform: none;
-    filter: blur(0);
+    transform: translateZ(0);
   }
 }

@@ -222,13 +222,29 @@ jobs:
             exit 1
           fi
 
+      # Only the first deployment may proceed without a known rollback version.
       - name: Record the live version for rollback
         if: steps.fresh.outputs.current == 'true'
         id: previous
         run: |
-          version="$(bunx wrangler deployments status --json 2>/dev/null | jq -r '.versions[0].version_id // empty' || true)"
+          workers="$(curl -sSf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts")"
+          if ! printf '%s' "$workers" | jq -e '.success == true' >/dev/null; then
+            echo "::error::Couldn't list the account's Workers. Check CLOUDFLARE_DEPLOY_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          if ! printf '%s' "$workers" | jq -e '.result | any(.id == "somequote")' >/dev/null; then
+            echo "::notice::First deploy: the somequote Worker doesn't exist yet, so there is nothing to roll back to."
+            exit 0
+          fi
+          status="$(bunx wrangler deployments status --json)"
+          version="$(printf '%s' "$status" | jq -r '.versions[0].version_id // empty')"
+          if [ -z "$version" ]; then
+            echo "::error::Couldn't read the live Worker version to roll back to, so nothing was deployed. Check CLOUDFLARE_DEPLOY_TOKEN."
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Live version before deploy: ${version:-none (first deploy)}"
+          echo "Live version before deploy: $version"
 
       - name: Apply D1 migrations
         if: steps.fresh.outputs.current == 'true'

@@ -71,6 +71,8 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
   const restRef = useRef<SVGGElement>(null);
   const zoneRef = useRef<HTMLSpanElement>(null);
   const switchRef = useRef<HTMLButtonElement>(null);
+  const motionRef = useRef(motion);
+  motionRef.current = motion;
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -88,6 +90,7 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
       return { x, y };
     };
     const toggle = () => switchColorScheme(currentColorScheme() === 'light' ? 'dark' : 'light');
+    const still = () => motionRef.current === 'reduced';
 
     let pullSwitched = false;
     const cord = new Cord(CORD_ANCHOR, {
@@ -131,9 +134,11 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
     let ignoreClickUntil = 0;
 
     const activate = () => {
-      cord.touch(null);
-      cord.tug();
-      wake();
+      if (!still()) {
+        cord.touch(null);
+        cord.tug();
+        wake();
+      }
       toggle();
     };
     const onPress = (event: PointerEvent) => {
@@ -162,12 +167,19 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
       const tapped = !pulling.moved && !pullSwitched && event.type === 'pointerup';
       ignoreClickUntil = performance.now() + CLICK_SUPPRESSION_MS;
       pulling = null;
-      cord.release();
+      if (still()) {
+        cord.settle();
+        draw();
+      } else {
+        cord.release();
+      }
       if (tapped) activate();
       else wake();
     };
     const onHover = (event: PointerEvent) => {
-      if (event.pointerType !== 'mouse' || pulling) return;
+      if (event.pointerType !== 'mouse' || pulling || still()) return;
+      // A magnifying glass in hand passes over the cord without brushing it.
+      if (event.target instanceof Element && event.target.closest('.magnifier-grip')) return;
       const point = toDrawing(event);
       if (!point) return;
       cord.touch(point);
@@ -241,10 +253,8 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
             <stop offset="0.62" stopColor="var(--iso-hi)" stopOpacity="0" />
             <stop offset="1" stopColor="var(--iso-hi)" stopOpacity="0.16" />
           </radialGradient>
-          <FlipClockDefs />
         </defs>
-        {/* Everything a magnifying glass can show; the glass draws after it, outside it. */}
-        <g id="desk-scene">
+        <g id="desk-body">
           {DESK_PARTS.map((part, index) => {
             if (part.kind === 'book') {
               return <Book key="book" motion={motion} controls={sceneRef} above={aboveRef} />;
@@ -257,8 +267,11 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
               <DeskPart key={index} part={part} />
             );
           })}
-          <FlipClock remainingMs={remainingMs} motion={motion} />
+        </g>
+        <g id="desk-ship">
           <ShipInBottle motion={motion} controls={sceneRef} />
+        </g>
+        <g id="desk-cord">
           <path ref={cordRef} className="lamp-cord" />
           <g ref={pullRef} className="lamp-pull">
             <path className="lamp-pull-body" d="M-0.9 0H0.9L1.1 2.2H-1.1Z" />
@@ -268,10 +281,24 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
             />
             <path className="lamp-pull-crease" d="M-2.2 4.6C-0.8 5.2 0.8 5.2 2.2 4.6" />
           </g>
-          {/* Nearer the reader than the lamp, clock, and cord: whatever lifts off the book. */}
-          <g ref={aboveRef} />
         </g>
+        {/* Nearer the reader than the lamp, clock, and cord: whatever lifts off the book. */}
+        <g id="desk-above" ref={aboveRef} />
         <g ref={restRef} />
+      </svg>
+      {/* Keep one-second clock updates from repainting the desk and its shadow. */}
+      <svg
+        className="iso-svg clock-layer"
+        viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <FlipClockDefs />
+        </defs>
+        <g id="desk-clock">
+          <FlipClock remainingMs={remainingMs} motion={motion} />
+        </g>
       </svg>
       <button
         ref={switchRef}

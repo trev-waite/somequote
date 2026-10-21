@@ -7,6 +7,7 @@ import {
   FRONT_COVER,
   nextBookPosition,
 } from './book-geometry';
+import { line } from './iso';
 
 describe('book geometry', () => {
   it('starts with equal stacks and transfers one leaf to the other side', () => {
@@ -20,6 +21,22 @@ describe('book geometry', () => {
     expect(next.leftHeight).toBeGreaterThan(initial.leftHeight);
     expect(next.rightHeight).toBeLessThan(initial.rightHeight);
     expect(bookDrawingAt(nextBookPosition(BOOK_MIDDLE + 1, 'previous'))).toEqual(initial);
+  });
+
+  it('draws page edges only on the outer side of the stack that faces the reader', () => {
+    const edges = bookDrawingAt(BOOK_MIDDLE).parts.filter(
+      (part) => part.kind === 'line' && part.tone === 'faint',
+    );
+    const outer = BOOK.spine + BOOK.width;
+    const firstEdge = BOOK.cover + BOOK.paper / BOOK.leaves;
+
+    expect(edges).toHaveLength(1);
+    expect(edges[0]?.kind === 'line' && edges[0].d).toMatch(
+      line([
+        [outer, BOOK.y, firstEdge],
+        [outer, BOOK.y + BOOK.depth, firstEdge],
+      ]),
+    );
   });
 
   it.each([-1, 1])(

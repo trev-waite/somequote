@@ -21,6 +21,9 @@ import {
 } from './magnifier-geometry';
 import type { Motion } from './reveal';
 
+// Separate <use> targets keep cord updates from rebuilding the entire magnified scene.
+const MAGNIFIED_LAYERS = ['desk-body', 'desk-ship', 'desk-cord', 'desk-above'] as const;
+
 /** Movement beyond this many CSS pixels turns a press on the glass into a drag. */
 const DRAG_SLOP_PX = 4;
 const SCROLL_SLOP = 4;
@@ -34,6 +37,8 @@ interface Hold {
   readonly elapsed: number;
   /** Where the lens's centre is held, in drawing units. */
   readonly lens: Point;
+  /** Fixed drawing position after lifting; dragging translates it without repainting. */
+  readonly anchor: Point;
 }
 
 const durationOf = (held: boolean, from: number) =>
@@ -46,19 +51,20 @@ function liftOf({ held, from, elapsed }: Hold): number {
   return from + (to - from) * Math.min(1, elapsed / duration);
 }
 
-function Glass({
-  drawing,
-  lift,
-  lifted,
-}: {
-  drawing: MagnifierDrawing;
-  lift: number;
-  lifted: boolean;
-}) {
-  const { lens } = drawing;
-  const zoom = `translate(${lens.center.x} ${lens.center.y}) scale(${lens.magnification}) translate(${-lens.center.x} ${-lens.center.y})`;
+const percent = (fraction: number) => `${(fraction * 100).toFixed(4)}%`;
+
+/** A polygon in drawing units as a CSS clip path over a box the size of the whole drawing. */
+const clipOver = (points: readonly Point[]) =>
+  `polygon(${points
+    .map(
+      ({ x, y }) =>
+        `${percent((x - VIEW_BOX.x) / VIEW_BOX.width)} ${percent((y - VIEW_BOX.y) / VIEW_BOX.height)}`,
+    )
+    .join(',')})`;
+
+function GlassBack({ drawing, lift }: { drawing: MagnifierDrawing; lift: number }) {
   return (
-    <g className="magnifier" data-held={lifted ? '' : undefined}>
+    <>
       {drawing.shadow && (
         <path
           className="magnifier-shadow"
@@ -72,31 +78,23 @@ function Glass({
         // biome-ignore lint/suspicious/noArrayIndexKey: the rim is a fixed set of parts
         <DeskPart key={index} part={part} />
       ))}
+      <path className="magnifier-wall" d={drawing.lens.near} />
+    </>
+  );
+}
+
+function GlassFront({ drawing }: { drawing: MagnifierDrawing }) {
+  const { lens } = drawing;
+  return (
+    <>
       <clipPath id="magnifier-near">
         <path d={lens.near} />
       </clipPath>
       <clipPath id="magnifier-far">
         <path d={lens.far} />
       </clipPath>
-      <path className="magnifier-wall" d={lens.near} />
       <g clipPath="url(#magnifier-near)">
         <g clipPath="url(#magnifier-far)">
-          {/* Redrawing the scene costs as much as drawing it, so only a raised glass shows it. */}
-          {lifted && (
-            <>
-              <rect
-                className="magnifier-backdrop"
-                x={VIEW_BOX.x - VIEW_BOX.width}
-                y={VIEW_BOX.y - VIEW_BOX.height}
-                width={VIEW_BOX.width * 3}
-                height={VIEW_BOX.height * 3}
-              />
-              <g className="magnifier-view" transform={zoom}>
-                <use href="#desk-scene" />
-                <use href="#envelope-scene" />
-              </g>
-            </>
-          )}
           <path className="magnifier-glass" d={lens.near} />
         </g>
       </g>
@@ -109,7 +107,7 @@ function Glass({
         // biome-ignore lint/suspicious/noArrayIndexKey: the handle is a fixed set of parts
         <DeskPart key={index} part={part} />
       ))}
-    </g>
+    </>
   );
 }
 
@@ -122,14 +120,19 @@ interface MagnifierProps {
 
 /**
  * A magnifying glass lying on the desk. Press and drag it to lift it by the handle and look at the
- * desk through it; let go and it stays held where it is. A tap on the held glass, Escape, or
- * scrolling away puts it back down. Its lens shows the live drawing, magnified.
+ * desk through it; let go and it stays held where it is. A tap on the held glass, a tap anywhere
+ * else, Escape, or scrolling away puts it back down. Its lens shows the live drawing, magnified.
  */
 export function Magnifier({ motion, controls, rest }: MagnifierProps) {
-  const [hold, setHold] = useState<Hold>({ held: false, from: 0, elapsed: 0, lens: HOVER_LENS });
+  const [hold, setHold] = useState<Hold>({
+    held: false,
+    from: 0,
+    elapsed: 0,
+    lens: HOVER_LENS,
+    anchor: HOVER_LENS,
+  });
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const [restLayer, setRestLayer] = useState<SVGGElement | null>(null);
-  const layerRef = useRef<SVGSVGElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const press = useRef<{
     pointerId: number;
@@ -138,6 +141,8 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
     offset: Point;
     wasHeld: boolean;
     moved: boolean;
+    /** From client pixels to drawing units, read once per press: reading it can force a layout. */
+    toDrawing: DOMMatrix | undefined;
   } | null>(null);
   const heldRef = useRef(hold.held);
   heldRef.current = hold.held;
@@ -156,7 +161,9 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
       start ??= now;
       const elapsed = Math.min(duration, now - start);
       setHold((current) =>
-        current.held === held && current.from === from ? { ...current, elapsed } : current,
+        current.held === held && current.from === from
+          ? { ...current, elapsed, anchor: elapsed < duration ? current.anchor : current.lens }
+          : current,
       );
       if (elapsed < duration) frame = requestAnimationFrame(step);
     };
@@ -174,6 +181,7 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
             from: motion === 'reduced' ? (held ? 1 : 0) : liftOf(current),
             elapsed: 0,
             lens: lens ?? current.lens,
+            anchor: lens ?? current.lens,
           };
     });
   const moveToRef = useRef(moveTo);
@@ -184,20 +192,40 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
       if (event.key === 'Escape' && heldRef.current) moveToRef.current(false);
     };
     const onScroll = () => {
-      if (!heldRef.current || press.current) return;
+      if (press.current) {
+        press.current.toDrawing = undefined;
+        return;
+      }
+      if (!heldRef.current) return;
       if (Math.abs(window.scrollY - scrollAtLift.current) > SCROLL_SLOP) moveToRef.current(false);
     };
+    const outside = (event: Event) =>
+      heldRef.current &&
+      !(event.target instanceof Node && buttonRef.current?.contains(event.target));
+    // While the glass is up, a press elsewhere only puts it down: nothing under it reacts.
+    const onPress = (event: PointerEvent) => {
+      if (outside(event)) event.stopPropagation();
+    };
+    const onClick = (event: MouseEvent) => {
+      if (!outside(event)) return;
+      event.stopPropagation();
+      event.preventDefault();
+      moveToRef.current(false);
+    };
     document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('click', onClick, true);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('click', onClick, true);
       window.removeEventListener('scroll', onScroll);
     };
   }, []);
 
-  const toDrawing = (event: ReactPointerEvent): Point | undefined => {
-    const matrix = layerRef.current?.getScreenCTM?.()?.inverse();
-    if (!matrix) return undefined;
+  const screenToDrawing = () => restLayer?.closest('svg')?.getScreenCTM?.()?.inverse();
+  const toDrawing = (event: ReactPointerEvent, matrix: DOMMatrix): Point => {
     const { x, y } = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix);
     return { x, y };
   };
@@ -211,25 +239,106 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
     if (event.type === 'pointerup' && !active.moved && active.wasHeld) moveTo(false);
   };
 
+  const settled = held && lift === 1;
+  const drawnAt = settled ? hold.anchor : hold.lens;
+  const shift = settled
+    ? { x: hold.lens.x - hold.anchor.x, y: hold.lens.y - hold.anchor.y }
+    : { x: 0, y: 0 };
   const drawing = useMemo(
-    () => magnifierDrawingAt(magnifierFrameAt(lift, hold.lens), lift),
-    [lift, hold.lens],
+    () => magnifierDrawingAt(magnifierFrameAt(lift, drawnAt), lift),
+    [lift, drawnAt],
   );
+  const back = useMemo(() => <GlassBack drawing={drawing} lift={lift} />, [drawing, lift]);
+  const front = useMemo(() => <GlassFront drawing={drawing} />, [drawing]);
   const lifted = lift > 0;
-  const glass = <Glass drawing={drawing} lift={lift} lifted={lifted} />;
+
+  const zoom = MAGNIFIER.held.magnification;
+  const center = { x: drawing.lens.center.x + shift.x, y: drawing.lens.center.y + shift.y };
+  const fraction = (point: Point) => ({
+    x: (point.x - VIEW_BOX.x) / VIEW_BOX.width,
+    y: (point.y - VIEW_BOX.y) / VIEW_BOX.height,
+  });
+  const moved = fraction({ x: VIEW_BOX.x + shift.x, y: VIEW_BOX.y + shift.y });
+  const anchored = fraction(drawing.lens.center);
+  /** Within the moved glass, where the magnified drawing sits so `center` stays under the lens. */
+  const view = {
+    x: (1 - zoom) * anchored.x - zoom * moved.x,
+    y: (1 - zoom) * anchored.y - zoom * moved.y,
+  };
+  const viewStyle = {
+    width: percent(zoom),
+    height: percent(zoom),
+    transform: `translate(${percent(view.x / zoom)}, ${percent(view.y / zoom)})`,
+  };
 
   return (
     <>
-      <svg
-        ref={layerRef}
-        className="iso-svg magnifier-layer"
-        viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
-        aria-hidden="true"
-        focusable="false"
-      >
-        {lifted && glass}
-      </svg>
-      {!lifted && restLayer && createPortal(glass, restLayer)}
+      <div className="magnifier-layer">
+        {lifted && (
+          <div
+            className="magnifier-held"
+            style={{ transform: `translate(${percent(moved.x)}, ${percent(moved.y)})` }}
+          >
+            <svg
+              className="iso-svg magnifier-part"
+              viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g className="magnifier" data-held="">
+                {back}
+              </g>
+            </svg>
+            <div
+              className="magnifier-lens"
+              style={{ clipPath: clipOver(drawing.lens.opening), opacity: lift }}
+              data-center={`${center.x} ${center.y}`}
+              data-magnification={zoom}
+            >
+              <svg
+                className="iso-svg magnifier-view"
+                viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
+                style={viewStyle}
+                aria-hidden="true"
+                focusable="false"
+              >
+                {MAGNIFIED_LAYERS.map((id) => (
+                  <use key={id} href={`#${id}`} />
+                ))}
+              </svg>
+              <svg
+                className="iso-svg magnifier-view"
+                viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
+                style={viewStyle}
+                aria-hidden="true"
+                focusable="false"
+              >
+                <use href="#desk-clock" />
+                <use href="#envelope-scene" />
+              </svg>
+            </div>
+            <svg
+              className="iso-svg magnifier-part"
+              viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g className="magnifier" data-held="">
+                {front}
+              </g>
+            </svg>
+          </div>
+        )}
+      </div>
+      {!lifted &&
+        restLayer &&
+        createPortal(
+          <g className="magnifier">
+            {back}
+            {front}
+          </g>,
+          restLayer,
+        )}
       {host &&
         createPortal(
           <>
@@ -238,13 +347,18 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
               type="button"
               className="magnifier-grip"
               data-held={held ? '' : undefined}
-              style={{ ...overlay(drawing.area.box), clipPath: drawing.area.clipPath }}
+              style={{
+                ...overlay(drawing.area.box),
+                clipPath: drawing.area.clipPath,
+                transform: `translate(${percent(shift.x / drawing.area.box.width)}, ${percent(shift.y / drawing.area.box.height)})`,
+              }}
               aria-label={held ? 'Put down the magnifying glass' : 'Pick up the magnifying glass'}
               aria-pressed={held}
               onPointerDown={(event) => {
                 if (event.button !== 0 || press.current) return;
-                const point = toDrawing(event);
-                if (!point) return;
+                const matrix = screenToDrawing();
+                if (!matrix) return;
+                const point = toDrawing(event, matrix);
                 event.preventDefault();
                 event.currentTarget.setPointerCapture?.(event.pointerId);
                 const offset = held
@@ -257,6 +371,7 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
                   offset,
                   wasHeld: held,
                   moved: false,
+                  toDrawing: matrix,
                 };
                 if (!held)
                   moveTo(true, clampLens({ x: point.x + offset.x, y: point.y + offset.y }));
@@ -266,8 +381,9 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
                 if (!active || active.pointerId !== event.pointerId) return;
                 active.moved ||=
                   Math.hypot(event.clientX - active.x, event.clientY - active.y) > DRAG_SLOP_PX;
-                const point = toDrawing(event);
-                if (!point) return;
+                active.toDrawing ??= screenToDrawing();
+                if (!active.toDrawing) return;
+                const point = toDrawing(event, active.toDrawing);
                 moveTo(
                   true,
                   clampLens({ x: point.x + active.offset.x, y: point.y + active.offset.y }),

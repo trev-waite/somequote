@@ -196,7 +196,7 @@ function headerPath(header: string): string | undefined {
 }
 
 /**
- * Findings in `git log -p --reverse --unified=0 --format='commit %H'` output: every added line of
+ * Findings in `git log -p --reverse --unified=1 --format='commit %H'` output: every added line of
  * every commit, plus every private file a commit adds. Each value is reported once, at the oldest
  * commit that added it.
  */
@@ -247,6 +247,9 @@ export function scanLog(log: string): Finding[] {
       pending = name ? { name, line } : undefined;
       line++;
     } else if (inHunk && text.startsWith(' ')) {
+      // Context: a changed value under an unchanged `name: |` is still assigned to that name.
+      const name = danglingName(text.slice(1).replace(/\r$/, ''));
+      pending = name ? { name, line } : undefined;
       line++;
     }
   }

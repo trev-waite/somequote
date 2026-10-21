@@ -65,8 +65,8 @@ Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_fou
 
 - **Browser cache.** The frontend uses the browser's HTTP cache; there is no separate local-storage copy. `Cache-Control`, `Date`, and `Expires` bound freshness to one hour or the next New York midnight, whichever comes first.
 - **Shared cache.** The Worker uses Cloudflare's Cache API, local to each Cloudflare data center. Keys include the Eastern publication date and normalized endpoint parameters. Extra query parameters cannot force database reads; equivalent history queries share a key. Cache hits reduce the browser TTL by the response's age, so repeated hits cannot extend its expiry. Cache failures fall back to D1; errors are never cached.
-- **IP limit.** `API_RATE_LIMITER` in `wrangler.jsonc` targets 60 API requests per 60 seconds per IP, shared across all API paths and checked before cache or database access. Only Cloudflare's `CF-Connecting-IP` is used; missing addresses share an `unknown` bucket. Cloudflare's counters are approximate and local to a data center, not a global quota. Shared office or mobile-network IPs also share the allowance. Namespace `1001` is reserved for this app; change it if another Worker in your account already uses it.
-- **Request budget.** Cloudflare currently includes [100,000 Worker requests per day](https://developers.cloudflare.com/workers/platform/limits/) on the Workers Free plan, shared across the account and reset at midnight UTC. Static-asset requests do not invoke this Worker. Cache hits and requests rejected inside the Worker still consume its request allowance. D1 Free includes [5 million rows read and 100,000 rows written per day](https://developers.cloudflare.com/d1/platform/pricing/). Free-plan quota exhaustion causes failures rather than automatic paid overages; keep the account on Free if a hard zero-cost ceiling is required. A distributed attack can still exhaust these limits.
+- **IP limit.** `API_RATE_LIMITER` in `wrangler.jsonc` targets 10 API requests per 60 seconds per IP, shared across all API paths and checked before cache or database access. Only Cloudflare's `CF-Connecting-IP` is used. IPv6 addresses share one bucket per /64, since one host can rotate through its whole /64; missing addresses share an `unknown` bucket. Cloudflare's counters are approximate and local to a data center, not a global quota. Shared office or mobile-network IPs also share the allowance. Namespace `1001` is reserved for this app; change it if another Worker in your account already uses it.
+- **Request budget.** Cloudflare currently includes [100,000 Worker requests per day](https://developers.cloudflare.com/workers/platform/limits/) on the Workers Free plan, shared across the account and reset at midnight UTC. Static-asset requests do not invoke this Worker. Cache hits and requests rejected inside the Worker still consume its request allowance. D1 Free includes [5 million rows read and 100,000 rows written per day](https://developers.cloudflare.com/d1/platform/pricing/). Free-plan quota exhaustion causes failures rather than automatic paid overages; keep the account on Free if a hard zero-cost ceiling is required. The edge rule (5 requests per 10 seconds) lets one address invoke the Worker at most about 43,000 times a day, so a few addresses together can still exhaust these limits; Workers Paid removes that risk.
 - **Edge rate limit.** `scripts/configure-zone.ts` adds a zone rate limiting rule that blocks API bursts before they invoke the Worker (see Deploying). Monitor Worker requests, D1 row usage, and 429s in Cloudflare; thresholds may need adjustment for legitimate traffic.
 
 ### Daily selection
@@ -101,32 +101,17 @@ To add a quote, edit `general.ts` or `bible.ts`, then run `bun run test`, `bun r
 
 ## Deploying to Cloudflare
 
-These steps create resources in your account; none have been run.
+These steps create resources in your account; none have been run. The first deploy runs in CI, so no Cloudflare token is needed on your machine.
 
-```bash
-cd apps/web
-bunx wrangler login
-bunx wrangler d1 create somequote
-```
+1. Create the database in the Cloudflare dashboard (Storage & Databases → D1 SQL Database → Create, named `somequote`) and copy its ID into the `d1_databases` entry in `apps/web/wrangler.jsonc`.
+2. Add the repository secrets (Continuous deployment → Setup, below).
+3. Merge to `main`. The deploy job applies the migrations, loads the collection, deploys, and smoke-tests `https://somequote.com`. `somequote.com` must already be a zone in the same account, with no existing apex `A`/`AAAA`/`CNAME` record; deploying attaches it as the Worker's [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) and creates its DNS record and certificate. `workers_dev` and `preview_urls` are `false` in `wrangler.jsonc`, so the Worker has no `*.workers.dev` hostnames that would bypass the zone's HTTPS redirect and WAF rule. There is no earlier version to roll back to on this first deploy, so a failed smoke test only fails the run.
 
-1. Copy the printed `database_id` into the `d1_databases` entry in `apps/web/wrangler.jsonc`. If you skip this, `wrangler deploy` can provision the database automatically, but you would then have to run the migration and seed after the first deploy, and the API returns errors until you do.
-2. Create the schema and load the content:
-   ```bash
-   bun run db:migrate:remote
-   bun run db:seed:remote
-   ```
-3. Build and deploy. `somequote.com` must already be a zone in the same account, with no existing apex `A`/`AAAA`/`CNAME` record; deploying attaches it as the Worker's [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) and creates its DNS record and certificate. `workers_dev` and `preview_urls` are `false` in `wrangler.jsonc`, so the Worker has no `*.workers.dev` hostnames that would bypass the zone's HTTPS redirect and WAF rule.
-   ```bash
-   bun run deploy
-   ```
-4. Configure the zone. Create an API token scoped to `somequote.com` with Zone Read, Zone Settings Edit, Zone WAF Edit, Single Redirect Edit, and DNS Edit (all limited to `somequote.com`), then review the plan and apply it:
-   ```bash
-   CLOUDFLARE_API_TOKEN=… bun run --cwd apps/web zone:plan    # read-only; prints what would change
-   CLOUDFLARE_API_TOKEN=… bun run --cwd apps/web zone:apply
-   ```
+   To deploy from your own machine instead: `cd apps/web && bunx wrangler login`, then `bun run db:migrate:remote`, `bun run db:seed:remote`, and `bun run deploy`.
+4. Configure the zone from Actions → Zone settings → Run workflow on `main`: leave *Apply* unticked to print the plan, then run it again with *Apply* ticked. It uses the `CLOUDFLARE_ZONE_TOKEN` secret. (Locally, `CLOUDFLARE_API_TOKEN=… bun run --cwd apps/web zone:plan` and `zone:apply` do the same.)
    `scripts/configure-zone.ts` is idempotent and touches only the settings it lists and the rules it owns (matched by `ref`). It reads and checks everything before writing anything: if a check fails (SSL off, another rate limiting rule already exists, or a DNS-only `www` record), it exits with the fix and changes nothing. It sets:
    - **HTTPS only.** Always Use HTTPS (every `http://` request is redirected at the edge, before assets or the Worker), Automatic HTTPS Rewrites, minimum TLS 1.2, TLS 1.3 without 0-RTT (early data can be replayed), and HTTP/3. The app sends `Strict-Transport-Security: max-age=63072000; includeSubDomains` on every response (`public/_headers`, `src/worker/app.ts`), so the zone's HSTS header is kept off to avoid a second, conflicting header.
-   - **Rate limiting rule.** Path starts with `/api/`, 30 requests per 10 seconds per IP in each Cloudflare data center (not a global count), Block for 10 seconds (the Free plan's one rule, 10-second period, and 10-second timeout). It blocks bursts before Worker invocation; the in-Worker minute limit remains a second layer. If you created a rate limiting rule by hand earlier, the script asks you to delete it first: the Free plan allows only one.
+   - **Rate limiting rule.** Path starts with `/api/`, 5 requests per 10 seconds per IP in each Cloudflare data center (not a global count), Block for 10 seconds (the Free plan's one rule, 10-second period, and 10-second timeout). It blocks before the Worker runs, so it is what protects the daily Worker request allowance; the in-Worker minute limit remains a second layer. A page load makes one API request and the browser serves repeats from its cache, so normal visits stay well under both limits. If you created a rate limiting rule by hand earlier, the script asks you to delete it first: the Free plan allows only one.
    - **www.** A proxied placeholder `AAAA www → 100::` and a 301 redirect rule from `www.somequote.com` to `https://somequote.com`, keeping path and query. The redirect runs at the edge and never invokes the Worker.
    - **HTML untouched.** Email Obfuscation and Rocket Loader off: both rewrite pages and inject scripts that the Content-Security-Policy blocks. Browser Integrity Check stays on. Don't enable Cloudflare Web Analytics' automatic injection for the same reason.
    - **DNSSEC.** Enabled; the script prints the DS record to add at your registrar (automatic with Cloudflare Registrar).
@@ -134,7 +119,7 @@ bunx wrangler d1 create somequote
 
 HSTS preload is deliberately not enabled. Submitting `somequote.com` to [hstspreload.org](https://hstspreload.org) requires adding `; preload` to both HSTS headers, is slow to undo, and makes every subdomain HTTPS-only in browsers permanently. Add it once the domain is settled.
 
-After the first deploy, deployments are automatic (below): merging to `main` applies new migrations, syncs the collection, and deploys.
+After that, every merge to `main` deploys the same way (below): it applies new migrations, syncs the collection, and deploys.
 
 ## Continuous deployment
 
@@ -146,7 +131,7 @@ Three workflows in `.github/workflows`:
 | --- | --- |
 | Lint, typecheck, test | Applied migrations unchanged (only new `000N_*.sql` files); [actionlint](https://github.com/rhysd/actionlint) and shellcheck on the workflows; `biome ci`; typecheck; every Vitest suite. PRs also run `bun audit` (high and critical), and `content:verify-sources` when `packages/content` changes (source texts are cached by `sources.ts`). |
 | Build and browser smoke tests | Production build; `scripts/check-build.ts` (only expected files become public assets, `.assetsignore` keeps `wrangler.json` and `.dev.vars` private, and JS/CSS stay within gzip budgets); Playwright in Chromium at desktop and mobile sizes against `vite preview` of that build with a migrated, seeded local D1 (today's quote renders with the production headers and font, with no console errors, CSP violations, or failed requests; no horizontal overflow; the lamp's color scheme survives a reload; bundles are immutable). |
-| Deploy (merges to `main` only) | Skips a commit that is no longer the head of `main`, so re-running an old workflow can't roll production back. Downloads the build the jobs above tested, applies D1 migrations, syncs the collection (`db:seed:remote`), deploys with the commit as the version message and tag, then smoke-tests `https://somequote.com` (`scripts/smoke.ts`: page, bundle, and API contract with the production headers). If the smoke test fails, it rolls the Worker back once to the version that was live before, then reports whether production recovered. Migrations stay applied, which is safe because they are append-only. Deploys run one at a time. |
+| Deploy (merges to `main` only) | Skips a commit that is no longer the head of `main`, so re-running an old workflow can't roll production back. Downloads the build the jobs above tested, applies D1 migrations, syncs the collection (`db:seed:remote`), deploys with the commit as the version message and tag, then smoke-tests `https://somequote.com` (`scripts/smoke.ts`: page, bundle, and API contract with the production headers). If the smoke test fails, it rolls the Worker back once to the version that was live before, then reports whether production recovered. If the Worker already exists and that version can't be read, it doesn't deploy. Only the first deploy, when Cloudflare's list of Workers has no `somequote`, goes ahead without a version to roll back to. Migrations stay applied, which is safe because they are append-only. Deploys run one at a time. |
 
 **The rollback can't loop.**
 - It runs at most once per run, and nothing after it deploys.
@@ -165,7 +150,7 @@ The two check jobs run in parallel. Each installs from the frozen lockfile in se
 
 After applying, it verifies the HTTPS and `www` redirects at the edge.
 
-**`secrets.yml`, on every push to any branch or tag.** It has no path filters and is never cancelled. A skipped push would never be scanned, because the next run scans only the commits after it. Pull requests are covered by the pushes to their branches.
+**`secrets.yml`, on every push to any branch or tag.** It has no path filters and no concurrency group, so no run is ever cancelled (GitHub cancels a queued run when another joins its group, even with `cancel-in-progress: false`). A skipped push would never be scanned, because the next run scans only the commits after it. Pull requests are covered by the pushes to their branches.
 
 **Secret scanning.** `tools/secret-scan` has no dependencies and is covered by its own tests.
 - **What it checks:** every added line of every new commit, so a secret deleted in a later commit is still caught. It also checks commit messages and the message of a pushed annotated tag. It reports the commit that first added each secret.

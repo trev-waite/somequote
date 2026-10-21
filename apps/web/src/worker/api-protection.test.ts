@@ -3,7 +3,7 @@ import { publicationDateAt } from '@somequote/domain';
 import { seededRandom } from '@somequote/domain/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorDto, HistoryDto, PublicationDto } from '../shared/api-contract';
-import { createApp } from './app';
+import { createApp, rateLimitClient } from './app';
 import { D1QuoteRepository } from './d1-quote-repository';
 import { generalQuote, insertQuotes, quotes, resetDatabase } from './test-support';
 
@@ -170,6 +170,28 @@ describe('API throttling', () => {
 
     await request('/api/quote/today', { 'CF-Connecting-IP': '203.0.113.8' });
     expect(limit).toHaveBeenLastCalledWith({ key: 'somequote:api:203.0.113.8' });
+  });
+
+  it('shares one bucket across an IPv6 /64, so rotating addresses cannot multiply the limit', async () => {
+    await request('/api/quote/today', { 'CF-Connecting-IP': '2001:db8:aa:1:1111:2222:3333:4444' });
+    await request('/api/quote/today', { 'CF-Connecting-IP': '2001:0DB8:00AA:0001::9' });
+    await request('/api/quote/today', { 'CF-Connecting-IP': '2001:db8:aa:2::1' });
+
+    expect(limit.mock.calls.map(([options]) => options.key)).toEqual([
+      'somequote:api:2001:db8:aa:1::/64',
+      'somequote:api:2001:db8:aa:1::/64',
+      'somequote:api:2001:db8:aa:2::/64',
+    ]);
+  });
+
+  it.each([
+    ['2001:db8::1', '2001:db8:0:0::/64'],
+    ['::1', '0:0:0:0::/64'],
+    ['fe80::', 'fe80:0:0:0::/64'],
+    ['::ffff:198.51.100.4', '198.51.100.4'],
+    ['198.51.100.4', '198.51.100.4'],
+  ])('keys %s as %s', (ip, client) => {
+    expect(rateLimitClient(ip)).toBe(client);
   });
 
   it('also throttles unknown paths and requests without an IP header', async () => {

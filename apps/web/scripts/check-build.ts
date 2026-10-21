@@ -16,6 +16,7 @@ const PUBLIC_FILES = [
   /^_headers$/,
   /^robots\.txt$/,
   /^favicon\.svg$/,
+  /^og-image\.png$/,
   /^color-scheme\.js$/,
   /^assets\/index-[\w-]+\.(?:js|css)$/,
   /^fonts\/[\w-]+\.(?:woff2|txt)$/,

@@ -41,7 +41,8 @@ describe('deployment configuration', () => {
   it('scans every pushed commit for secrets, with no path filters to skip one', () => {
     expect(secretsWorkflow).toMatch(/branches: \['\*\*'\]/);
     expect(secretsWorkflow).not.toMatch(/paths(?:-ignore)?:/);
-    expect(secretsWorkflow).toMatch(/cancel-in-progress: false/);
+    // A concurrency group would let GitHub cancel a pending scan when a third push queues.
+    expect(secretsWorkflow).not.toMatch(/^\s*concurrency:/m);
   });
 
   it('rolls back at most once per run, after the only deploy', () => {

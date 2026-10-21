@@ -37,7 +37,7 @@ function showBottle(motion: Motion) {
 }
 
 describe('ShipInBottle', () => {
-  it('falls and cracks when knocked, then fades back onto its stand after five seconds', () => {
+  it('falls and cracks when knocked, then fades back onto its stand after three seconds', () => {
     const { container, knock, trigger, stage, wait } = showBottle('full');
     expect(container.querySelector('.bottle-crack')).toBeNull();
     knock();

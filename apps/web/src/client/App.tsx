@@ -6,9 +6,9 @@ import { PublicationView } from './Publication';
 import { usePrefersReducedMotion, useTodayPublication } from './today';
 
 export function App({ load }: { load?: typeof fetchTodayPublication }) {
-  const { state, retry } = useTodayPublication(load);
+  const { state, retry, rollOver } = useTodayPublication(load);
   const reducedMotion = usePrefersReducedMotion();
-  const remaining = useCountdown(retry);
+  const remaining = useCountdown(rollOver);
 
   return (
     <div className="page">
@@ -22,6 +22,7 @@ export function App({ load }: { load?: typeof fetchTodayPublication }) {
           <main className="page-main" aria-busy={state.kind === 'loading'}>
             {state.kind === 'ready' && (
               <PublicationView
+                key={state.publication.date}
                 publication={state.publication}
                 motion={reducedMotion ? 'reduced' : 'full'}
               />

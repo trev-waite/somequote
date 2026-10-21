@@ -30,23 +30,23 @@ afterEach(() => {
 function showGlass(motion: Motion = 'full') {
   const view = render(<Desk remainingMs={100_000} motion={motion} quote={undefined} />);
   cleanup = view.unmount;
-  const layer = view.container.querySelector<SVGSVGElement>('.magnifier-layer');
+  const desk = view.container.querySelector('svg');
+  const layer = view.container.querySelector<HTMLDivElement>('.magnifier-layer');
   const grip = view.container.querySelector<HTMLButtonElement>('.magnifier-grip');
-  if (!layer || !grip) throw new Error('missing magnifying glass');
+  if (!desk || !layer || !grip) throw new Error('missing magnifying glass');
   // Client pixels are drawing units, so pointer positions can be given in the drawing's terms.
-  vi.spyOn(layer, 'getScreenCTM').mockReturnValue(new DOMMatrix());
+  vi.spyOn(desk, 'getScreenCTM').mockReturnValue(new DOMMatrix());
   const pointer = (type: string, x: number, y: number) =>
     act(() => {
       grip.dispatchEvent(
         new PointerEvent(type, { bubbles: true, pointerId: 1, button: 0, clientX: x, clientY: y }),
       );
     });
-  /** The lens's centre and magnification, read from the transform on what it shows. */
   const lens = () => {
-    const zoom = view.container.querySelector('.magnifier-view')?.getAttribute('transform');
-    const match = zoom?.match(/^translate\((\S+) (\S+)\) scale\((\S+)\)/);
-    if (!match) throw new Error('missing lens');
-    return { x: Number(match[1]), y: Number(match[2]), magnification: Number(match[3]) };
+    const shown = view.container.querySelector<HTMLElement>('.magnifier-lens');
+    const [x, y] = (shown?.dataset.center ?? '').split(' ').map(Number);
+    if (!shown || x === undefined || y === undefined) throw new Error('missing lens');
+    return { x, y, magnification: Number(shown.dataset.magnification) };
   };
   return {
     container: view.container,
@@ -73,7 +73,7 @@ describe('Magnifier', () => {
     expect(lens().x).toBeCloseTo(target.x, 1);
     expect(lens().y).toBeCloseTo(target.y, 1);
     expect(lens().magnification).toBe(MAGNIFIER.held.magnification);
-    expect(container.querySelector('.magnifier-layer use[href="#desk-scene"]')).not.toBeNull();
+    expect(container.querySelector('.magnifier-lens use[href="#desk-body"]')).not.toBeNull();
     pointer('pointerup', 20, 10);
     wait(500);
     expect(held()).toBe(true);
@@ -105,9 +105,48 @@ describe('Magnifier', () => {
     expect(held()).toBe(false);
     wait(MAGNIFIER.dropMs + 50);
     expect(raised()).toBe(false);
-    expect(container.querySelector('#desk-scene ~ g .magnifier')).not.toBeNull();
+    expect(container.querySelector('svg')?.querySelector('.magnifier')).not.toBeNull();
     expect(grip.style.cssText).toBe(resting);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('moves a raised glass without redrawing it, so dragging never repaints the drawing', () => {
+    const { container, pointer, lens, wait } = showGlass();
+    pointer('pointerdown', REST_LENS.x, REST_LENS.y);
+    pointer('pointerup', REST_LENS.x, REST_LENS.y);
+    wait(MAGNIFIER.liftMs + 50);
+    const edge = () => container.querySelector('.magnifier-lens-edge')?.getAttribute('d');
+    const drawn = edge();
+    const before = lens();
+
+    pointer('pointerdown', before.x, before.y);
+    pointer('pointermove', before.x + 12, before.y - 6);
+    pointer('pointerup', before.x + 12, before.y - 6);
+
+    expect(lens().x).toBeCloseTo(before.x + 12, 1);
+    expect(lens().y).toBeCloseTo(before.y - 6, 1);
+    expect(edge()).toBe(drawn);
+    expect(container.querySelector<HTMLElement>('.magnifier-held')?.style.transform).toMatch(
+      /^translate\(\S+%, \S+%\)$/,
+    );
+  });
+
+  it('is put down by a tap anywhere else, which nothing under it receives', () => {
+    const { container, pointer, held, raised, wait } = showGlass();
+    pointer('pointerdown', REST_LENS.x, REST_LENS.y);
+    pointer('pointerup', REST_LENS.x, REST_LENS.y);
+    wait(MAGNIFIER.liftMs + 50);
+    const lamp = container.querySelector<HTMLButtonElement>('.lamp-switch');
+
+    act(() => {
+      lamp?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 2 }));
+      lamp?.click();
+    });
+
+    expect(held()).toBe(false);
+    expect(document.documentElement.dataset.colorScheme).toBe('light');
+    wait(MAGNIFIER.dropMs + 50);
+    expect(raised()).toBe(false);
   });
 
   it('works from the keyboard and puts itself down on Escape', () => {

@@ -180,6 +180,22 @@ export class Cord {
     this.#wake();
   }
 
+  /** Lets go and puts the cord straight back at rest, without swinging, for reduced motion. */
+  settle(): void {
+    this.#grabbed = null;
+    this.#tug = null;
+    this.#finger = null;
+    this.#fingerFrom = null;
+    this.#stretch = 0;
+    this.#stretchVelocity = 0;
+    this.#carry = 0;
+    for (const [index, link] of this.#links.entries()) {
+      link.x = link.px = this.#anchor.x;
+      link.y = link.py = this.#anchor.y + index * this.#rest;
+    }
+    this.#stillSteps = STILL_STEPS;
+  }
+
   #wake(): void {
     this.#stillSteps = 0;
   }

@@ -16,5 +16,8 @@
 /fonts/*
   Cache-Control: public, max-age=2592000
 
+/og-image.png
+  Cache-Control: public, max-age=86400
+
 /favicon.svg
   ! Content-Security-Policy

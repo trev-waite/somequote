@@ -7,7 +7,7 @@ export type FlightStage = 'folding' | 'flying' | 'away' | 'landing';
 export const FLIGHT_DURATION: Record<FlightStage, number> = {
   folding: 1500,
   flying: 5600,
-  away: 5000,
+  away: 3000,
   landing: 3400,
 };
 

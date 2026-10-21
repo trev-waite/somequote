@@ -93,7 +93,7 @@ const SKID = 0.12;
 export const BOTTLE_DURATION: Record<BottleStage, number> = {
   standing: 0,
   falling: IMPACT_MS + SETTLE_MS,
-  broken: 5000,
+  broken: 3000,
   fading: 650,
   returning: 650,
 };

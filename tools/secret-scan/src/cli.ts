@@ -24,7 +24,7 @@ const DIFF_FORMAT = [
   'log',
   '--reverse',
   '--text',
-  '--unified=0',
+  '--unified=1',
   '--src-prefix=a/',
   '--dst-prefix=b/',
   '--no-relative',

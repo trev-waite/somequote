@@ -119,6 +119,15 @@ describe('scanCommits', () => {
     expect(locations()).toEqual([['config.yml', 3, 'secret-assignment']]);
   });
 
+  it('finds a replaced value under an unchanged YAML block indicator', () => {
+    commit({ 'config.yml': 'cloudflare:\n  api_token: |\n    placeholder\n' }, 'template');
+    const leaked = commit({ 'config.yml': `cloudflare:\n  api_token: |\n    ${legacy}\n` }, 'fill');
+
+    expect(scan()).toEqual([
+      expect.objectContaining({ commit: leaked, path: 'config.yml', line: 3 }),
+    ]);
+  });
+
   it('scans commit messages', () => {
     const leaked = commit({}, `deploy with ${token}`);
     expect(scan()).toEqual([

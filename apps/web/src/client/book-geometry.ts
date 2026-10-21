@@ -140,17 +140,23 @@ function pageBlock(side: Side, count: number, openness: number, page: number): B
     [BOOK.spine, BOOK.y, BOOK.cover],
   ];
   const block = prism(side === 1 ? profile.reverse() : profile, [0, BOOK.depth, 0]);
-  const edges = Array.from({ length: Math.max(0, Math.ceil(count) - 1) }, (_, i) => {
-    const z = BOOK.cover + ((i + 1) * BOOK.paper) / BOOK.leaves;
-    return line([
-      [BOOK.spine + side * BOOK.width, BOOK.y, z],
-      [BOOK.spine + side * BOOK.width, BOOK.y + BOOK.depth, z],
-    ]);
-  }).join('');
+  // The page edges are drawn on the block's outer side, which only the right block turns toward
+  // the reader; drawn on the left block they would show through its pages.
+  const outerFacesReader = vec.dot([side, 0, 0], SCREEN.out) > 0;
+  const edges = Array.from(
+    { length: outerFacesReader ? Math.max(0, Math.ceil(count) - 1) : 0 },
+    (_, i) => {
+      const z = BOOK.cover + ((i + 1) * BOOK.paper) / BOOK.leaves;
+      return line([
+        [BOOK.spine + side * BOOK.width, BOOK.y, z],
+        [BOOK.spine + side * BOOK.width, BOOK.y + BOOK.depth, z],
+      ]);
+    },
+  ).join('');
   return [
     solid(block),
     ...litPaper(surface, 1),
-    stroke(edges, 'faint'),
+    ...(edges ? [stroke(edges, 'faint')] : []),
     stroke(writing(surface, page)),
   ];
 }

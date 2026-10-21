@@ -238,7 +238,7 @@ describe('Envelope', () => {
     }
   });
 
-  it('flies away, stays gone for five seconds, then floats back ready to open', () => {
+  it('flies away, stays gone for three seconds, then floats back ready to open', () => {
     const { query, trigger, open, wait, fly } = showDesk();
     open();
     fly();
@@ -247,7 +247,7 @@ describe('Envelope', () => {
     expect(query('.paper-airplane')).not.toBeNull();
     wait(5650);
     expect(query('.envelope')?.getAttribute('visibility')).toBe('hidden');
-    wait(4800);
+    wait(2800);
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
     wait(250);
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('landing');
@@ -295,7 +295,7 @@ describe('Envelope', () => {
     if (!airplane) throw new Error('missing airplane');
     press(airplane);
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
-    wait(5000);
+    wait(3000);
     expect(trigger.getAttribute('aria-disabled')).toBe('false');
     expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
   });
