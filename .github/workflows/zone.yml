@@ -1,0 +1,99 @@
+name: Zone settings
+
+# Applies apps/web/scripts/configure-zone.ts to somequote.com only when it changes on main or on a
+# manual run, and checks weekly (read-only) that nobody has changed the zone in the dashboard.
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/web/scripts/configure-zone.ts
+      - .github/workflows/zone.yml
+  schedule:
+    - cron: '23 14 * * 1'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply changes (otherwise only print the plan)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zone
+  cancel-in-progress: false
+
+jobs:
+  zone:
+    name: ${{ github.event_name == 'schedule' && 'Check for drift' || 'Configure somequote.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ZONE_TOKEN }}
+      APPLY: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.apply) }}
+    steps:
+      # Re-running an old workflow must never apply an older version of the script.
+      - name: Decide whether to run
+        id: fresh
+        run: |
+          head="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] && [ "$EVENT" = schedule ]; then
+            echo "::notice::CLOUDFLARE_ZONE_TOKEN is not set yet; skipping the drift check."
+          elif [ "$APPLY" = true ] && [ "$head" != "$GITHUB_SHA" ]; then
+            echo "::notice::Not applying ${GITHUB_SHA}: main is now ${head}"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+
+      - name: Checkout
+        if: steps.fresh.outputs.current == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            apps/web/scripts/configure-zone.ts
+            package.json
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Bun
+        if: steps.fresh.outputs.current == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      # The script has no dependencies, so nothing is installed.
+      - name: Plan, apply, or check for drift
+        if: steps.fresh.outputs.current == 'true'
+        run: |
+          if [ "$EVENT" = schedule ]; then
+            bun apps/web/scripts/configure-zone.ts --check
+          elif [ "$APPLY" = true ]; then
+            bun apps/web/scripts/configure-zone.ts --apply
+          else
+            bun apps/web/scripts/configure-zone.ts
+          fi
+        env:
+          EVENT: ${{ github.event_name }}
+
+      - name: Verify HTTPS and www redirects at the edge
+        if: steps.fresh.outputs.current == 'true' && (github.event_name == 'schedule' || env.APPLY == 'true')
+        run: |
+          # Retries for about a minute, since new settings take a moment to reach the edge.
+          expect() {
+            for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              result="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' "$1" || true)"
+              if [ "$result" = "$2" ]; then
+                echo "ok  $1 → $2"
+                return
+              fi
+              sleep 5
+            done
+            echo "::error::$1 returned '$result', expected '$2'"
+            exit 1
+          }
+          expect 'http://somequote.com/' '301 https://somequote.com/'
+          expect 'https://www.somequote.com/a?b=1' '301 https://somequote.com/a?b=1'

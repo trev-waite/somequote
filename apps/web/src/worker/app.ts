@@ -33,7 +33,7 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
   app.use(
     secureHeaders({
       contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
-      strictTransportSecurity: 'max-age=31536000',
+      strictTransportSecurity: 'max-age=63072000; includeSubDomains',
       xFrameOptions: 'DENY',
     }),
   );

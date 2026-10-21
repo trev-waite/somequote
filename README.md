@@ -20,7 +20,8 @@ bun run dev                 # http://localhost:5173
 | Command | What it does |
 | --- | --- |
 | `bun run dev` | Vite dev server running the Worker in `workerd`, with local D1 |
-| `bun run build` | Production build of the client assets and Worker (`apps/web/dist`) |
+| `bun run build` | Production build of the client assets and Worker (`apps/web/dist`), then the public-asset allowlist and size budgets |
+| `bun run test:e2e` | Builds, then runs the Playwright smoke tests against `vite preview` of the build |
 | `bun run preview` | Serves the production build locally, including `_headers` |
 | `bun run lint` / `bun run format` | Biome check / fix |
 | `bun run typecheck` | TypeScript for every package; fails if generated Worker types are stale |
@@ -66,6 +67,7 @@ Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_fou
 - **Shared cache.** The Worker uses Cloudflare's Cache API, local to each Cloudflare data center. Keys include the Eastern publication date and normalized endpoint parameters. Extra query parameters cannot force database reads; equivalent history queries share a key. Cache hits reduce the browser TTL by the response's age, so repeated hits cannot extend its expiry. Cache failures fall back to D1; errors are never cached.
 - **IP limit.** `API_RATE_LIMITER` in `wrangler.jsonc` targets 60 API requests per 60 seconds per IP, shared across all API paths and checked before cache or database access. Only Cloudflare's `CF-Connecting-IP` is used; missing addresses share an `unknown` bucket. Cloudflare's counters are approximate and local to a data center, not a global quota. Shared office or mobile-network IPs also share the allowance. Namespace `1001` is reserved for this app; change it if another Worker in your account already uses it.
 - **Request budget.** Cloudflare currently includes [100,000 Worker requests per day](https://developers.cloudflare.com/workers/platform/limits/) on the Workers Free plan, shared across the account and reset at midnight UTC. Static-asset requests do not invoke this Worker. Cache hits and requests rejected inside the Worker still consume its request allowance. D1 Free includes [5 million rows read and 100,000 rows written per day](https://developers.cloudflare.com/d1/platform/pricing/). Free-plan quota exhaustion causes failures rather than automatic paid overages; keep the account on Free if a hard zero-cost ceiling is required. A distributed attack can still exhaust these limits.
+- **Edge rate limit.** `scripts/configure-zone.ts` adds a zone rate limiting rule that blocks API bursts before they invoke the Worker (see Deploying). Monitor Worker requests, D1 row usage, and 429s in Cloudflare; thresholds may need adjustment for legitimate traffic.
 
 ### Daily selection
 
@@ -113,18 +115,102 @@ bunx wrangler d1 create somequote
    bun run db:migrate:remote
    bun run db:seed:remote
    ```
-3. Build and deploy:
+3. Build and deploy. `somequote.com` must already be a zone in the same account, with no existing apex `A`/`AAAA`/`CNAME` record; deploying attaches it as the Worker's [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) and creates its DNS record and certificate. `workers_dev` and `preview_urls` are `false` in `wrangler.jsonc`, so the Worker has no `*.workers.dev` hostnames that would bypass the zone's HTTPS redirect and WAF rule.
    ```bash
    bun run deploy
    ```
-4. Check `https://somequote.<your-subdomain>.workers.dev/api/quote/today`. In the dashboard, the Worker's Settings → Triggers lists both cron triggers. Logs and traces are enabled in `wrangler.jsonc`.
-5. Optional: add a custom domain under the Worker's Settings → Domains & Routes, or in `wrangler.jsonc`.
+4. Configure the zone. Create an API token scoped to `somequote.com` with Zone Read, Zone Settings Edit, Zone WAF Edit, Single Redirect Edit, and DNS Edit (all limited to `somequote.com`), then review the plan and apply it:
+   ```bash
+   CLOUDFLARE_API_TOKEN=… bun run --cwd apps/web zone:plan    # read-only; prints what would change
+   CLOUDFLARE_API_TOKEN=… bun run --cwd apps/web zone:apply
+   ```
+   `scripts/configure-zone.ts` is idempotent and touches only the settings it lists and the rules it owns (matched by `ref`). It reads and checks everything before writing anything: if a check fails (SSL off, another rate limiting rule already exists, or a DNS-only `www` record), it exits with the fix and changes nothing. It sets:
+   - **HTTPS only.** Always Use HTTPS (every `http://` request is redirected at the edge, before assets or the Worker), Automatic HTTPS Rewrites, minimum TLS 1.2, TLS 1.3 without 0-RTT (early data can be replayed), and HTTP/3. The app sends `Strict-Transport-Security: max-age=63072000; includeSubDomains` on every response (`public/_headers`, `src/worker/app.ts`), so the zone's HSTS header is kept off to avoid a second, conflicting header.
+   - **Rate limiting rule.** Path starts with `/api/`, 30 requests per 10 seconds per IP in each Cloudflare data center (not a global count), Block for 10 seconds (the Free plan's one rule, 10-second period, and 10-second timeout). It blocks bursts before Worker invocation; the in-Worker minute limit remains a second layer. If you created a rate limiting rule by hand earlier, the script asks you to delete it first: the Free plan allows only one.
+   - **www.** A proxied placeholder `AAAA www → 100::` and a 301 redirect rule from `www.somequote.com` to `https://somequote.com`, keeping path and query. The redirect runs at the edge and never invokes the Worker.
+   - **HTML untouched.** Email Obfuscation and Rocket Loader off: both rewrite pages and inject scripts that the Content-Security-Policy blocks. Browser Integrity Check stays on. Don't enable Cloudflare Web Analytics' automatic injection for the same reason.
+   - **DNSSEC.** Enabled; the script prints the DS record to add at your registrar (automatic with Cloudflare Registrar).
+5. Verify on the real domain: `http://somequote.com` and `https://www.somequote.com/?a=1` redirect to `https://somequote.com/` (query kept), the site and `https://somequote.com/api/quote/today` load, a short burst of API requests is blocked, and both cron triggers appear in the Worker's Settings → Triggers. Logs and traces are enabled in `wrangler.jsonc`.
 
-Later content changes need only `bun run db:seed:remote`; schema changes need a new migration and `bun run db:migrate:remote` before deploying.
+HSTS preload is deliberately not enabled. Submitting `somequote.com` to [hstspreload.org](https://hstspreload.org) requires adding `; preload` to both HSTS headers, is slow to undo, and makes every subdomain HTTPS-only in browsers permanently. Add it once the domain is settled.
+
+After the first deploy, deployments are automatic (below): merging to `main` applies new migrations, syncs the collection, and deploys.
+
+## Continuous deployment
+
+Three workflows in `.github/workflows`:
+
+**`ci.yml`, on every pull request and every merge to `main`.** Docs-only changes (`*.md`) are skipped, and a new push to a PR cancels its previous run.
+
+| Job | Checks |
+| --- | --- |
+| Lint, typecheck, test | Applied migrations unchanged (only new `000N_*.sql` files); [actionlint](https://github.com/rhysd/actionlint) and shellcheck on the workflows; `biome ci`; typecheck; every Vitest suite. PRs also run `bun audit` (high and critical), and `content:verify-sources` when `packages/content` changes (source texts are cached by `sources.ts`). |
+| Build and browser smoke tests | Production build; `scripts/check-build.ts` (only expected files become public assets, `.assetsignore` keeps `wrangler.json` and `.dev.vars` private, and JS/CSS stay within gzip budgets); Playwright in Chromium at desktop and mobile sizes against `vite preview` of that build with a migrated, seeded local D1 (today's quote renders with the production headers and font, with no console errors, CSP violations, or failed requests; no horizontal overflow; the lamp's color scheme survives a reload; bundles are immutable). |
+| Deploy (merges to `main` only) | Skips a commit that is no longer the head of `main`, so re-running an old workflow can't roll production back. Downloads the build the jobs above tested, applies D1 migrations, syncs the collection (`db:seed:remote`), deploys with the commit as the version message and tag, then smoke-tests `https://somequote.com` (`scripts/smoke.ts`: page, bundle, and API contract with the production headers). If the smoke test fails, it rolls the Worker back once to the version that was live before, then reports whether production recovered. Migrations stay applied, which is safe because they are append-only. Deploys run one at a time. |
+
+**The rollback can't loop.**
+- It runs at most once per run, and nothing after it deploys.
+- No workflow can start another run: the token is read-only (`contents: read`), and no step pushes, dispatches, or calls `gh workflow run`. GitHub also never starts workflows from events caused by the job's own token, except dispatches.
+- `wrangler rollback` is a Cloudflare API call that triggers nothing in GitHub.
+- A later deploy needs a new merge or a manual run.
+
+`deployment-config.test.ts` fails if a workflow gains write permissions, a push or dispatch, or a second deploy or rollback. Don't also connect the repository to Cloudflare Workers Builds, which would deploy every push separately, without these checks.
+
+The two check jobs run in parallel. Each installs from the frozen lockfile in seconds, so there is no dependency or Turbo cache to maintain. Merges rerun the checks on the merged result rather than trusting the PR run, since `main` may have moved.
+
+**`zone.yml`, not on every merge.** Zone settings change rarely and need a different, more powerful token, so this workflow runs `scripts/configure-zone.ts`:
+- **Applies it** when the script (or the workflow) changes on `main`.
+- **Runs it on demand** from Actions → Zone settings → Run workflow, which prints the plan, or applies it if you tick *Apply*.
+- **Checks weekly (Mondays, read-only)** that nobody has changed the zone in the dashboard (`--check` fails on drift), and that `http://` and `www` still redirect.
+
+After applying, it verifies the HTTPS and `www` redirects at the edge.
+
+**`secrets.yml`, on every push to any branch or tag.** It has no path filters and is never cancelled. A skipped push would never be scanned, because the next run scans only the commits after it. Pull requests are covered by the pushes to their branches.
+
+**Secret scanning.** `tools/secret-scan` has no dependencies and is covered by its own tests.
+- **What it checks:** every added line of every new commit, so a secret deleted in a later commit is still caught. It also checks commit messages and the message of a pushed annotated tag. It reports the commit that first added each secret.
+- **What it matches:**
+  - Cloudflare's prefixed `cfut_`/`cfat_`/`cfk_`/`cfast_` credentials anywhere.
+  - Legacy Global API Keys after `X-Auth-Key`, and Origin CA keys.
+  - Unprefixed legacy tokens assigned to a secret-looking name, including quoted passphrases, JSON, and YAML `|` blocks.
+  - `Bearer` tokens and `user:password@` URLs.
+  - GitHub, Anthropic, OpenAI, xAI, Google, AWS, and npm keys; PEM, OpenSSH, PGP, and PuTTY private keys; JWTs.
+  - Committed `.env`, `.envrc`, `.dev.vars`, and key files. `.example`, `.sample`, and `.template` copies are allowed.
+- **What it ignores:** `${{ secrets.X }}`, `$VAR`, `process.env.X`, placeholders, checksums, and lockfile hashes.
+- **Robustness:** it pins git's diff format, so a developer's `diff.noprefix`, path quoting, or binary-file settings can't hide a file. Files git calls binary are read as text, and paths with quotes, tabs, or non-ASCII characters are reported correctly. Every pattern is bounded, so a 200 KB minified line takes milliseconds.
+- **Running it yourself:** run `bun run hooks:install` once per clone. A pre-push hook then runs the same scan before anything leaves your machine, which CI cannot do. `bun run scan:secrets` scans the whole history.
+- **Deliberate test values:** mark the line `secret-scan: allow`, or assemble the value at runtime as the tests do.
+
+If a real credential is found, rotate it first; it has left your machine if it was pushed.
+
+**Setup.** Add three repository secrets (Settings → Secrets and variables → Actions). Create the two tokens as **Account API tokens** (Manage Account → Account API Tokens). Cloudflare recommends them for CI/CD, since they don't depend on a person's login, and Wrangler needs them for permissions this narrow. Give each a TTL (12 months, say), and note the renewal date.
+
+| Secret | Value |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Your account ID (dashboard → Workers & Pages → Account details) |
+| `CLOUDFLARE_DEPLOY_TOKEN` | Account → Workers Scripts → Edit; Account → D1 → Edit; Account → Account Settings → Read; Zone → Workers Routes → Edit, for `somequote.com` only |
+| `CLOUDFLARE_ZONE_TOKEN` | Zone → Zone → Read; Zone → Zone Settings → Edit; Zone → Zone WAF → Edit; Zone → Single Redirect → Edit; Zone → DNS → Edit; all for `somequote.com` only |
+
+Cloudflare's compatibility list for account tokens doesn't explicitly mention Workers Custom Domains or DNSSEC. If the first deploy or zone run gets an authentication error on those calls, create that token as a user token instead. IP address filtering isn't practical, because GitHub-hosted runners use changing addresses.
+
+The deploy job fails with instructions until those secrets and the `database_id` exist. The weekly drift check stays quiet until `CLOUDFLARE_ZONE_TOKEN` is set.
+
+**Limits of a private repository on GitHub Free.** Branch protection, required checks, and environment secrets need GitHub Pro (or a public repository):
+- Nothing stops a merge while checks are red; wait for the checks before merging. The deploy job won't run unless they pass.
+- Repository secrets are readable by workflows on any branch of this repository, but not from forks. Keep the two Cloudflare tokens narrowly scoped, and give write access only to people you'd trust with them.
+
+**Where the secrets live.** GitHub repository secrets are the right default here. They are encrypted, masked in logs, and withheld from forks.
+- **GitHub Pro ($4/month) is the one upgrade worth making.**
+  - Move the Cloudflare secrets into a `production` environment restricted to `main`, so a workflow on any other branch can't read them. Add `environment: production` to the deploy and zone jobs.
+  - Protect `main`, requiring *Lint, typecheck, test*, *Build and browser smoke tests*, and *Secret scan*.
+  - Required reviewers on private repositories still need GitHub Enterprise.
+- **A public repository** gets all of that free, plus required reviewers and GitHub's own secret scanning with push protection.
+- **Short-lived credentials (GitHub OIDC)** would beat any stored token, but Cloudflare's API doesn't document support for GitHub OIDC. Revisit if that changes.
+- **External secret managers** (1Password, Doppler, Vault) still need a bootstrap secret stored in GitHub, and add another party with access. Using AWS Secrets Manager through GitHub OIDC with a `main`-only trust policy would restrict access by branch without Pro, but it means running an AWS account for two tokens.
 
 ## Verification
 
-Run `bun run lint && bun run typecheck && bun run test && bun run build` before publishing. The tests cover real local D1 contention, publication history, selection distribution, DST, API failures, reveal timing/accessibility, cord gestures, clock animation cleanup, and countdown rollover. `bun run content:verify-sources` checks all 192 quotes against 60 primary texts; add `--refresh` to download the sources again instead of using the local cache.
+Run `bun run lint && bun run typecheck && bun run test && bun run test:e2e` before opening a PR (`test:e2e` builds, then runs the Playwright smoke tests; install the browser once with `cd apps/web && bunx playwright install chromium --only-shell`). CI runs the same checks. The tests cover real local D1 contention, publication history, selection distribution, DST, shared API caching and expiry, IP throttling, API failures, reveal timing/accessibility, cord gestures, clock animation cleanup, and countdown rollover. `bun run content:verify-sources` checks all 192 quotes against 60 primary texts; add `--refresh` to download the sources again instead of using the local cache.
 
 The production preview was checked in the browser at desktop and mobile sizes, including font loading, overflow, word/attribution sequencing, and console errors. No Cloudflare resources were created, no account authentication was performed, and nothing was deployed. Production bindings and deployment remain to be verified after connecting your account.
 

@@ -4,6 +4,11 @@
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-10-18",
   "upload_source_maps": true,
+  // Serve only on the custom domain, where the zone's HTTPS redirect and WAF rules apply
+  // (scripts/configure-zone.ts). workers.dev and version preview URLs would bypass both.
+  "routes": [{ "pattern": "somequote.com", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     // The React app is served as static assets; only /api/* reaches the Worker.
     "not_found_handling": "single-page-application",

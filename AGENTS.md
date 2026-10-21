@@ -11,6 +11,7 @@ SomeQuote publishes one quote per day (America/New_York) that every visitor sees
 | `apps/web/src/worker` | Worker entry (`fetch` + `scheduled`), Hono API (`app.ts`), D1 implementation of `QuoteRepository`, seed SQL. | domain, shared |
 | `apps/web/src/shared` | HTTP contract (Zod mini schemas) used by both Worker and client. | domain |
 | `apps/web/src/client` | React app: data loading (`today.ts`), reveal timing (`reveal.ts`), presentation (`Publication.tsx`), styles. | shared |
+| `tools/secret-scan` | Dependency-free secret scanner for CI and the pre-push hook (`.githooks/pre-push`). | — |
 | `apps/web/migrations` | D1 schema. The database enforces the core invariants. | — |
 
 Dependency direction is one way: `client → shared → domain`, `worker → domain`. Business logic never imports Cloudflare, Hono, React, or Zod.
@@ -22,6 +23,7 @@ Dependency direction is one way: `client → shared → domain`, `worker → dom
 - **Usage is derived, not stored.** Times published and last-published dates come from `publications` at selection time.
 - **80/20 by rotation.** `ROTATION` in `domain/src/selection.ts` (4 general + 1 bible per 5 publications, random order, derived from history). Change the mix there; add a category by extending `CATEGORIES`, `ROTATION`, the `Quote` union, the schema `CHECK`, and the API contract.
 - **Eastern time lives in one place:** `domain/src/publication-clock.ts`. Crons in `wrangler.jsonc` fire at 04:00 and 05:00 UTC; a test asserts they cover midnight every day.
+- **HTTPS only, one hostname.** The Worker serves only the `somequote.com` Custom Domain (`workers_dev` and `preview_urls` are `false`; a test asserts it), so no alternate hostname bypasses the zone. The zone's Always Use HTTPS redirect, WAF rate limit, and www redirect exist only once `apps/web/scripts/configure-zone.ts` has been applied; change zone settings there, not in the dashboard. HSTS is sent by the app (`public/_headers` and `app.ts`, kept identical by a test), not the zone.
 - **WEB verses are exact excerpts.** Do not edit verse text (the WEB license forbids calling altered text the WEB). General quotes may differ from sources only typographically (see `content/scripts/verify-sources.ts`).
 - **Every quote character must exist in the font.** `SUPPORTED_CHARACTERS` in `content/src/validate.ts`.
 
@@ -37,9 +39,11 @@ Dependency direction is one way: `client → shared → domain`, `worker → dom
 ## Verify
 
 ```bash
-bun run lint && bun run typecheck && bun run test && bun run build
+bun run lint && bun run typecheck && bun run test && bun run test:e2e   # test:e2e builds first
 bun run content:verify-sources   # network: re-checks every quote against its source text
 ```
+
+CI (`.github/workflows/ci.yml`) runs all of the above plus workflow linting and a check that applied migrations are unchanged; merging to `main` deploys the tested build. `secrets.yml` scans every push to any branch or tag; keep it free of path filters and cancellation, or a skipped push's commits are never scanned. `zone.yml` applies zone settings only when `configure-zone.ts` changes. Action versions are pinned to commit SHAs; actionlint is pinned with a SHA-256 checksum. Add a rule to `tools/secret-scan/src/secrets.ts` when the project starts using a new kind of credential. Workflows never get write permissions, push, or dispatch runs (`deployment-config.test.ts`), which is what keeps the automatic rollback from looping. If a build legitimately exceeds a size budget, raise it in `apps/web/scripts/check-build.ts` in the same change.
 
 Common tasks:
 
