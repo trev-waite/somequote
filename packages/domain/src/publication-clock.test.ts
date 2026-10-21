@@ -69,7 +69,17 @@ describe('nextPublicationAt', () => {
 describe('publication dates', () => {
   it('accepts only real calendar days in YYYY-MM-DD form', () => {
     expect(isPublicationDate('2028-02-29')).toBe(true);
-    for (const invalid of ['2026-02-29', '2026-02-30', '2026-13-01', '2026-1-1', '26-01-01']) {
+    for (const invalid of [
+      '2026-02-29',
+      '2026-02-30',
+      '2026-13-01',
+      '2026-1-1',
+      '26-01-01',
+      '2026-01-01\n',
+      '2026-01-01\r',
+      '2026-01-01\u2028',
+      '2026-01-01\u2029',
+    ]) {
       expect(isPublicationDate(invalid)).toBe(false);
     }
     expect(isPublicationDate('2026-01-01T00:00:00Z')).toBe(false);

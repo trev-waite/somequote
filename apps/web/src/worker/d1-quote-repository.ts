@@ -161,14 +161,19 @@ export class D1QuoteRepository implements QuoteRepository {
     before,
     limit,
   }: Parameters<QuoteRepository['listPublications']>[0]): Promise<Publication[]> {
-    const { results } = await this.#db
-      .prepare(`
-        ${SELECT_PUBLICATION}
-        WHERE ?1 IS NULL OR p.publish_date < ?1
-        ORDER BY p.publish_date DESC
-        LIMIT ?2`)
-      .bind(before, limit)
-      .all();
+    const statement =
+      before === null
+        ? this.#db
+            .prepare(`${SELECT_PUBLICATION} ORDER BY p.publish_date DESC LIMIT ?1`)
+            .bind(limit)
+        : this.#db
+            .prepare(`
+              ${SELECT_PUBLICATION}
+              WHERE p.publish_date < ?1
+              ORDER BY p.publish_date DESC
+              LIMIT ?2`)
+            .bind(before, limit);
+    const { results } = await statement.all();
     return z.array(PublicationRow).parse(results);
   }
 }

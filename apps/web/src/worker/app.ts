@@ -18,7 +18,7 @@ import {
 } from '../shared/api-contract';
 import { publicationResponse } from './publication-cache';
 
-export interface AppDependencies {
+interface AppDependencies {
   readonly repositoryFor: (env: Env) => QuoteRepository;
   readonly now: () => Date;
   readonly random: Random;
@@ -57,6 +57,7 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
     const at = now();
     return publicationResponse({
       url: c.req.url,
+      path: '/api/quote/today',
       parameters: new URLSearchParams(),
       at,
       now,
@@ -73,13 +74,14 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
   });
 
   app.get('/quotes/history', async (c) => {
-    const query = HistoryQuery.safeParse(c.req.query());
-    if (!query.success) {
+    const { limit: limits = [], before: dates = [] } = c.req.queries();
+    const query = HistoryQuery.safeParse({ limit: limits[0], before: dates[0] });
+    if (limits.length > 1 || dates.length > 1 || !query.success) {
       return errorResponse(
         c,
         400,
         'invalid_request',
-        'Use limit between 1 and 30 and before as a YYYY-MM-DD date.',
+        'Use limit once as 1–3 decimal digits between 1 and 30, and before once as a YYYY-MM-DD date.',
       );
     }
     const { limit, before } = query.data;
@@ -89,6 +91,7 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
     const effectiveBefore = before !== undefined && before < tomorrow ? before : tomorrow;
     return publicationResponse({
       url: c.req.url,
+      path: '/api/quotes/history',
       parameters: new URLSearchParams({ limit: String(limit), before: effectiveBefore }),
       at,
       now,

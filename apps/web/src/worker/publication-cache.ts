@@ -5,6 +5,7 @@ const MAX_CACHE_MS = 60 * 60 * 1000;
 
 interface PublicationResponseOptions {
   readonly url: string;
+  readonly path: '/api/quote/today' | '/api/quotes/history';
   readonly parameters: URLSearchParams;
   readonly at: Date;
   readonly now: () => Date;
@@ -12,16 +13,16 @@ interface PublicationResponseOptions {
   readonly load: () => Promise<PublicationDto | HistoryDto>;
 }
 
-/** Shared responses expire within an hour and cannot cross an Eastern publication date. */
 export async function publicationResponse({
   url,
+  path,
   parameters,
   at,
   now,
   cache,
   load,
 }: PublicationResponseOptions): Promise<Response> {
-  const key = new URL(url);
+  const key = new URL(path, url);
   key.search = parameters.toString();
   key.searchParams.set('_publication', publicationDateAt(at));
   key.searchParams.set('_version', '1');

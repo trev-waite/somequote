@@ -60,6 +60,22 @@ describe('shared API caching', () => {
     expect(response.headers.get('Expires')).toBe(new Date('2026-10-18T17:00:00Z').toUTCString());
   });
 
+  it.each([
+    ['/api/quote/today', ['/api/quote/%74oday', '/api/qu%6fte/today', '/api/qu%6Fte/today']],
+    [
+      '/api/quotes/history',
+      ['/api/quotes/%68istory', '/api/qu%6ftes/history', '/api/qu%6Ftes/hist%6Fry'],
+    ],
+  ])('shares the %s cache entry across encoded route paths', async (path, variants) => {
+    const first = await request(path);
+    for (const variant of variants) {
+      const next = await request(variant);
+      expect(next.response.status).toBe(200);
+      expect(next.body).toEqual(first.body);
+    }
+    expect(repositoryFor).toHaveBeenCalledTimes(1);
+  });
+
   it('refills a response after its hour expires', async () => {
     const first = await request('/api/quote/today');
     clock = new Date('2026-10-18T17:00:00Z');
@@ -134,6 +150,43 @@ describe('shared API caching', () => {
 
     expect(response.status).toBe(200);
     expect(PublicationDto.parse(body).date).toBe('2026-10-18');
+  });
+});
+
+describe('history query validation', () => {
+  it.each([
+    'limit=1&limit=30',
+    'limit=1&limit=1',
+    'limit=1&%6cimit=31',
+    'before=2026-10-18&before=2026-10-17',
+    'before=2026-10-18&%62efore=invalid',
+    'before=2026-10-18%0a',
+    'before=2026-10-18%0d',
+    'before=2026-10-18%E2%80%A8',
+    'before=2026-10-18%E2%80%A9',
+    'before=2026-02-30',
+    'before=2026-10-18%27%20OR%201=1--',
+    'limit=-1',
+    'limit=0',
+    'limit=31',
+    'limit=999',
+    'limit=1.5',
+    'limit=0x10',
+    'limit=1e1',
+    'limit=%2010',
+    'limit=10%0a',
+    'limit=%2b10',
+    'limit=',
+    `limit=${'0'.repeat(1000)}1`,
+  ])('rejects %s before reading the cache or D1', async (query) => {
+    const match = vi.spyOn(cache, 'match');
+    const { response, body } = await request(`/api/quotes/history?${query}`);
+
+    expect(response.status).toBe(400);
+    expect(ErrorDto.parse(body).error.code).toBe('invalid_request');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(match).not.toHaveBeenCalled();
+    expect(repositoryFor).not.toHaveBeenCalled();
   });
 });
 
