@@ -18,9 +18,8 @@
     {
       "binding": "DB",
       "database_name": "somequote",
+      "database_id": "063822de-f451-40ae-9770-58c3955441dd",
       "migrations_dir": "migrations"
-      // No database_id yet. Local development needs none. Before deploying, add the id printed by
-      // `wrangler d1 create somequote` (see README), or let `wrangler deploy` provision one.
     }
   ],
   "ratelimits": [

@@ -95,9 +95,9 @@ Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_fou
 
 ## Content
 
-`packages/content` holds 212 quotes: 170 general quotes and 42 verses (about 80/20; the published mix is held at 80/20 by the rotation).
+`packages/content` holds 400 quotes: 320 general quotes and 80 verses (about 80/20; the published mix is held at 80/20 by the rotation).
 
-- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 212 quotes against 64 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
+- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 400 quotes against 69 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
 - **Avoided misattributions.** Popular versions that do not match their sources were replaced with the authentic text. For example, Thoreau's "advances confidently in the direction of his dreams", Keller's "nothing can be done without hope" (no "and confidence"), Tolstoy's "patience and time", and Goethe's "a little song" (not "music").
 - **Licensing.** General quotes come from works in the public domain in the United States (published before 1931, including the translations used: Long, Legge, Müller, Gummere, Jowett, Chase, Hapgood, Maude, Carlyle, and the Kelloggs). Some translators and authors died less than 70 years ago, so a few texts may still be under copyright in other jurisdictions; they appear here as short, attributed quotations. Verses are exact excerpts of the [World English Bible](https://worldenglish.bible) (public domain; "World English Bible" is a trademark of eBible.org, and excerpts are never altered so the name stays accurate).
 - **Seeding.** `bun run db:seed:local` upserts every quote by id and disables quotes removed from the collection. History is never touched, and a quote's category cannot change.
@@ -114,21 +114,19 @@ To add a quote, edit `general.ts` or `bible.ts`, then run `bun run test`, `bun r
 
 ## Deploying to Cloudflare
 
-These steps create resources in your account; none have been run. The first deploy runs in CI, so no Cloudflare token is needed on your machine.
+Production targets the `somequote` Worker on `somequote.com`. The `somequote` D1 database ID is configured in `apps/web/wrangler.jsonc`, and the three Cloudflare repository secrets are stored in GitHub Actions (see Credentials and renewal below). Database and credential setup is complete; API access, production bindings, and zone settings still need validation by the deployment and zone workflows. CI needs no Cloudflare credentials on a developer's machine.
 
-1. Create the database in the Cloudflare dashboard (Storage & Databases → D1 SQL Database → Create, named `somequote`) and copy its ID into the `d1_databases` entry in `apps/web/wrangler.jsonc`.
-2. Add the repository secrets (Continuous deployment → Setup, below).
-3. Merge to `main`. The deploy job applies the migrations, loads the collection, deploys, and smoke-tests `https://somequote.com`. `somequote.com` must already be a zone in the same account, with no existing apex `A`/`AAAA`/`CNAME` record; deploying attaches it as the Worker's [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) and creates its DNS record and certificate. `workers_dev` and `preview_urls` are `false` in `wrangler.jsonc`, so the Worker has no `*.workers.dev` hostnames that would bypass the zone's HTTPS redirect and WAF rule. There is no earlier version to roll back to on this first deploy, so a failed smoke test only fails the run.
+1. Merge to `main`. The deploy job applies the migrations, loads the collection, deploys, and smoke-tests `https://somequote.com`. On the first deployment, Cloudflare attaches `somequote.com` as the Worker's [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) and creates its DNS record and certificate. The domain must be active in the same account, with no conflicting apex `A`/`AAAA`/`CNAME` record. `workers_dev` and `preview_urls` are `false` in `wrangler.jsonc`, so the Worker has no `*.workers.dev` hostnames that would bypass the zone's HTTPS redirect and WAF rule. There is no earlier version to roll back to on the first deploy, so a failed smoke test only fails the run.
 
    To deploy from your own machine instead: `cd apps/web && bunx wrangler login`, then `bun run db:migrate:remote`, `bun run db:seed:remote`, and `bun run deploy`.
-4. Configure the zone from Actions → Zone settings → Run workflow on `main`: leave *Apply* unticked to print the plan, then run it again with *Apply* ticked. It uses the `CLOUDFLARE_ZONE_TOKEN` secret. (Locally, `CLOUDFLARE_API_TOKEN=… bun run --cwd apps/web zone:plan` and `zone:apply` do the same.)
+2. Apply the zone configuration after the first deploy, and review it when zone policy changes. In Actions → Zone settings → Run workflow on `main`, leave *Apply* unticked to print the plan, then run it again with *Apply* ticked. It uses the `CLOUDFLARE_ZONE_TOKEN` secret. For local runs, provide that token through the `CLOUDFLARE_API_TOKEN` environment variable and run `bun run --cwd apps/web zone:plan` or `zone:apply`.
    `scripts/configure-zone.ts` is idempotent and touches only the settings it lists and the rules it owns (matched by `ref`). It reads and checks everything before writing anything: if a check fails (SSL off, another rate limiting rule already exists, or a DNS-only `www` record), it exits with the fix and changes nothing. It sets:
    - **HTTPS only.** Always Use HTTPS (every `http://` request is redirected at the edge, before assets or the Worker), Automatic HTTPS Rewrites, minimum TLS 1.2, TLS 1.3 without 0-RTT (early data can be replayed), and HTTP/3. The app sends `Strict-Transport-Security: max-age=63072000; includeSubDomains` on every response (`public/_headers`, `src/worker/app.ts`), so the zone's HSTS header is kept off to avoid a second, conflicting header.
    - **Rate limiting rule.** Path starts with `/api/`, 5 requests per 10 seconds per IP in each Cloudflare data center (not a global count), Block for 10 seconds (the Free plan's one rule, 10-second period, and 10-second timeout). It blocks before the Worker runs, so it is what protects the daily Worker request allowance; the in-Worker minute limit remains a second layer. A page load makes one API request and the browser serves repeats from its cache, so normal visits stay well under both limits. If you created a rate limiting rule by hand earlier, the script asks you to delete it first: the Free plan allows only one.
    - **www.** A proxied placeholder `AAAA www → 100::` and a 301 redirect rule from `www.somequote.com` to `https://somequote.com`, keeping path and query. The redirect runs at the edge and never invokes the Worker.
    - **HTML untouched.** Email Obfuscation and Rocket Loader off: both rewrite pages and inject scripts that the Content-Security-Policy blocks. Browser Integrity Check stays on. Don't enable Cloudflare Web Analytics' automatic injection for the same reason.
    - **DNSSEC.** Enabled; the script prints the DS record to add at your registrar (automatic with Cloudflare Registrar).
-5. Verify on the real domain: `http://somequote.com` and `https://www.somequote.com/?a=1` redirect to `https://somequote.com/` (query kept), the site and `https://somequote.com/api/quote/today` load, a short burst of API requests is blocked, and both cron triggers appear in the Worker's Settings → Triggers. Logs and traces are enabled in `wrangler.jsonc`.
+3. Verify on the real domain: `http://somequote.com` and `https://www.somequote.com/?a=1` redirect to `https://somequote.com/` (query kept), the site and `https://somequote.com/api/quote/today` load, a short burst of API requests is blocked, and both cron triggers appear in the Worker's Settings → Triggers. Logs and traces are enabled in `wrangler.jsonc`.
 
 HSTS preload is deliberately not enabled. Submitting `somequote.com` to [hstspreload.org](https://hstspreload.org) requires adding `; preload` to both HSTS headers, is slow to undo, and makes every subdomain HTTPS-only in browsers permanently. Add it once the domain is settled.
 
@@ -181,17 +179,17 @@ After applying, it verifies the HTTPS and `www` redirects at the edge.
 
 If a real credential is found, rotate it first; it has left your machine if it was pushed.
 
-**Setup.** Add three repository secrets (Settings → Secrets and variables → Actions). Create the two tokens as **Account API tokens** (Manage Account → Account API Tokens). Cloudflare recommends them for CI/CD, since they don't depend on a person's login, and Wrangler needs them for permissions this narrow. Give each a TTL (12 months, say), and note the renewal date.
+**Credentials and renewal.** These three repository secrets are configured in Settings → Secrets and variables → Actions. The two account API tokens are managed in Cloudflare → Manage Account → Account API Tokens and expire on **October 21, 2027**. Renew them before that date and replace the corresponding GitHub secret values. Keep token values out of the repository.
 
-| Secret | Value |
+| Secret | Purpose and policy |
 | --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | Your account ID (dashboard → Workers & Pages → Account details) |
-| `CLOUDFLARE_DEPLOY_TOKEN` | Account → Workers Scripts → Edit; Account → D1 → Edit; Account → Account Settings → Read; Zone → Workers Routes → Edit, for `somequote.com` only |
-| `CLOUDFLARE_ZONE_TOKEN` | Zone → Zone → Read; Zone → Zone Settings → Edit; Zone → Zone WAF → Edit; Zone → Single Redirect → Edit; Zone → DNS → Edit; all for `somequote.com` only |
+| `CLOUDFLARE_ACCOUNT_ID` | Account owning the Worker, D1 database, and domain. Find it with Cloudflare dashboard search → Copy account ID. |
+| `CLOUDFLARE_DEPLOY_TOKEN` | `somequote-github-deploy`: Entire Account → Workers Admin, D1 Write, Account Settings Read; Specified Domains → `somequote.com` → Workers Routes Write. Workers Admin permits initial Worker creation. |
+| `CLOUDFLARE_ZONE_TOKEN` | `somequote-github-zone`: Specified Domains → `somequote.com` → Zone Read, Zone Settings Write, Zone WAF Write, Dynamic URL Redirects Write (Single Redirects), DNS Write. |
 
-Cloudflare's compatibility list for account tokens doesn't explicitly mention Workers Custom Domains or DNSSEC. If the first deploy or zone run gets an authentication error on those calls, create that token as a user token instead. IP address filtering isn't practical, because GitHub-hosted runners use changing addresses.
+Client IP filtering is unset because standard GitHub-hosted runners use changing addresses. If either workflow reports an authentication error, check the token's permissions, resource scope, expiration, and GitHub secret value.
 
-The deploy job fails with instructions until those secrets and the `database_id` exist. The weekly drift check stays quiet until `CLOUDFLARE_ZONE_TOKEN` is set.
+The deploy job checks for its credentials and the configured `database_id` before changing production. The zone workflow uses its separate token for manual plans, applies, and weekly drift checks.
 
 **Limits of a private repository on GitHub Free.** Branch protection, required checks, and environment secrets need GitHub Pro (or a public repository):
 - Nothing stops a merge while checks are red; wait for the checks before merging. The deploy job won't run unless they pass.
@@ -210,7 +208,7 @@ The deploy job fails with instructions until those secrets and the `database_id`
 
 Run `bun run lint && bun run typecheck && bun run test && bun run test:e2e` before opening a PR (`test:e2e` builds, then runs the Playwright smoke tests; install the browser once with `cd apps/web && bunx playwright install chromium --only-shell`). CI runs the same checks. The tests cover real local D1 contention, publication history, selection distribution, DST, shared API caching and expiry, IP throttling, API failures, reveal timing/accessibility, cord gestures, clock animation cleanup, and countdown rollover. `bun run content:verify-sources` checks all 192 quotes against 60 primary texts; add `--refresh` to download the sources again instead of using the local cache.
 
-The production preview was checked in the browser at desktop and mobile sizes, including font loading, overflow, word/attribution sequencing, and console errors. No Cloudflare resources were created, no account authentication was performed, and nothing was deployed. Production bindings and deployment remain to be verified after connecting your account.
+The local production preview was checked in the browser at desktop and mobile sizes, including font loading, overflow, word/attribution sequencing, and console errors. D1 and GitHub credentials are configured; production API access, bindings, deployment, and zone configuration remain to be verified through the workflows and live-domain checks described above.
 
 ## Replacing parts
 
