@@ -5,7 +5,6 @@
  * dashes, italics markers, translator brackets, line breaks, the case of the first letter, and the
  * final punctuation mark of an excerpt. Bible verses must be exact excerpts of the cited passage,
  * because the World English Bible may only be called by that name when its text is unchanged.
- * Film dialogue must match English caption words in order; punctuation and case may differ.
  *
  * Usage: bun run content:verify-sources [--refresh]
  */
@@ -13,7 +12,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { BIBLE_VERSES, GENERAL_QUOTES, SOURCES, type SourceId } from '../src';
-import { englishFilmDialogue, filmDialogueMatches } from './film-dialogue';
 
 const CACHE_DIR = new URL('../.cache/sources/', import.meta.url);
 const REFRESH = process.argv.includes('--refresh');
@@ -37,7 +35,6 @@ async function download(id: SourceId): Promise<string> {
     });
   }
   const raw = await readFile(cached, 'utf8');
-  if (source.format === 'film-clip') return englishFilmDialogue(raw);
   return source.format === 'html' ? htmlToText(raw) : raw;
 }
 
@@ -109,11 +106,8 @@ for (const id of cited) {
 
 for (const entry of GENERAL_QUOTES) {
   const source = sourceText.get(entry.provenance.sourceId) ?? '';
-  const matches =
-    SOURCES[entry.provenance.sourceId].format === 'film-clip'
-      ? filmDialogueMatches(source, entry.text)
-      : appearsIn(source, entry.text);
-  if (!matches) failures.push(`${entry.id}: not found in ${entry.provenance.sourceId}`);
+  if (!appearsIn(source, entry.text))
+    failures.push(`${entry.id}: not found in ${entry.provenance.sourceId}`);
 }
 
 const verses = versesOf(await download('world-english-bible'));
