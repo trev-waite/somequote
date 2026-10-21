@@ -92,6 +92,49 @@ describe('Magnifier', () => {
     expect(lens().y).toBeCloseTo(before.y - 10, 1);
   });
 
+  it('eases the lens into view as the glass approaches, then settles completely', () => {
+    const { container, pointer, wait } = showGlass();
+    const opacity = () =>
+      Number(container.querySelector<HTMLElement>('.magnifier-lens')?.style.opacity);
+    pointer('pointerdown', REST_LENS.x, REST_LENS.y);
+    pointer('pointerup', REST_LENS.x, REST_LENS.y);
+
+    wait(MAGNIFIER.liftMs / 4);
+    const early = opacity();
+    expect(early).toBeGreaterThan(0);
+    expect(early).toBeLessThan(0.25);
+    wait(MAGNIFIER.liftMs / 4);
+    const middle = opacity();
+    expect(middle).toBeGreaterThan(early);
+    expect(middle - early).toBeGreaterThan(early);
+    wait(MAGNIFIER.liftMs / 4);
+    const late = opacity();
+    expect(late).toBeGreaterThan(0.75);
+    expect(late).toBeLessThan(1);
+    wait(MAGNIFIER.liftMs / 4 + 50);
+    expect(opacity()).toBe(1);
+    expect(1 - late).toBeLessThan(late - middle);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('returns from its current pose without jumping when the lift is interrupted', () => {
+    const { container, pointer, raised, wait } = showGlass();
+    pointer('pointerdown', REST_LENS.x, REST_LENS.y);
+    pointer('pointerup', REST_LENS.x, REST_LENS.y);
+    wait(MAGNIFIER.liftMs / 2);
+    const edge = () => container.querySelector('.magnifier-lens-edge')?.getAttribute('d');
+    const before = edge();
+    const opacity = container.querySelector<HTMLElement>('.magnifier-lens')?.style.opacity;
+
+    act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+
+    expect(edge()).toBe(before);
+    expect(container.querySelector<HTMLElement>('.magnifier-lens')?.style.opacity).toBe(opacity);
+    wait(MAGNIFIER.dropMs + 50);
+    expect(raised()).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('is put down by a tap on it, and settles back on the desk', () => {
     const { container, grip, pointer, held, raised, wait, lens } = showGlass();
     const resting = grip.style.cssText;

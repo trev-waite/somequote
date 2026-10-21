@@ -17,8 +17,8 @@ export const MAGNIFIER = {
   cap: { length: 0.9, radius: 1.3 },
   /** Held up, it is this many times nearer and larger, its handle angled down to the right. */
   held: { size: 3.4, angle: (52 * Math.PI) / 180, magnification: 2.3 },
-  liftMs: 280,
-  dropMs: 340,
+  liftMs: 700,
+  dropMs: 720,
 } as const;
 
 /** The glass's own axes: `u` along the handle and `v` across the lens, `n` out of its face. */

@@ -251,6 +251,7 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
   const back = useMemo(() => <GlassBack drawing={drawing} lift={lift} />, [drawing, lift]);
   const front = useMemo(() => <GlassFront drawing={drawing} />, [drawing]);
   const lifted = lift > 0;
+  const lensOpacity = lift * lift * (3 - 2 * lift);
 
   const zoom = MAGNIFIER.held.magnification;
   const center = { x: drawing.lens.center.x + shift.x, y: drawing.lens.center.y + shift.y };
@@ -291,7 +292,7 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
             </svg>
             <div
               className="magnifier-lens"
-              style={{ clipPath: clipOver(drawing.lens.opening), opacity: lift }}
+              style={{ clipPath: clipOver(drawing.lens.opening), opacity: lensOpacity }}
               data-center={`${center.x} ${center.y}`}
               data-magnification={zoom}
             >
