@@ -39,11 +39,6 @@ interface ShipInBottleProps {
   readonly controls: RefObject<HTMLDivElement | null>;
 }
 
-/**
- * A ship in a bottle on its stand. A click or tap knocks it off: it rolls off the desk, cracks on
- * the floor, and after a few seconds fades away there and back onto its stand. It is nearer the
- * reader than everything it can pass in front of, so it draws after the rest of the desk.
- */
 export function ShipInBottle({ motion, controls }: ShipInBottleProps) {
   const [{ stage, elapsed }, setClock] = useState<{ stage: BottleStage; elapsed: number }>({
     stage: 'standing',

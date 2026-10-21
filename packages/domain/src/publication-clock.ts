@@ -1,6 +1,5 @@
 export const PUBLICATION_TIME_ZONE = 'America/New_York';
 
-/** A calendar day in the publication time zone, written `YYYY-MM-DD`. Exactly one quote is published per day. */
 export type PublicationDate = string & { readonly __brand: 'PublicationDate' };
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -39,12 +38,10 @@ export function parsePublicationDate(value: string): PublicationDate {
   return value;
 }
 
-/** The publication day that contains `instant`, as observed on a wall clock in New York. */
 export function publicationDateAt(instant: Date): PublicationDate {
   return formatDay(wallClockAt(instant.getTime()));
 }
 
-/** The instant a publication day begins: midnight in New York, whether that is UTC−5 or UTC−4. */
 export function publicationStartsAt(date: PublicationDate): Date {
   const { year, month, day } = calendarDay(date);
   const midnightAsUtc = Date.UTC(year, month - 1, day);
@@ -52,7 +49,6 @@ export function publicationStartsAt(date: PublicationDate): Date {
   return new Date(midnightAsUtc - utcOffsetAt(estimate));
 }
 
-/** The instant the next publication day begins after `instant`. */
 export function nextPublicationAt(instant: Date): Date {
   return publicationStartsAt(addDays(publicationDateAt(instant), 1));
 }

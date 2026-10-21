@@ -2,10 +2,6 @@ import { defineConfig, devices } from '@playwright/test';
 
 const port = Number(process.env.E2E_PORT ?? 4173);
 
-/**
- * Smoke tests against the production build served by `vite preview`: the built Worker in workerd,
- * static assets with `_headers`, and a migrated, seeded local D1. Run `bun run build` first.
- */
 export default defineConfig({
   testDir: './e2e',
   forbidOnly: Boolean(process.env.CI),

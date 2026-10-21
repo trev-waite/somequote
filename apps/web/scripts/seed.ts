@@ -1,9 +1,3 @@
-/**
- * Makes the D1 `quotes` table match the curated collection in @somequote/content.
- * Idempotent: run it after every content change. Publication history is never touched.
- *
- * Usage: bun scripts/seed.ts --local | --remote
- */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

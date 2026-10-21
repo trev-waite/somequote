@@ -21,7 +21,6 @@ export function render(ui: ReactNode) {
   };
 }
 
-/** Stands in for the browser's media query so tests can choose the motion preference. */
 export function preferReducedMotion(reduce: boolean): void {
   window.matchMedia = (query: string) =>
     ({

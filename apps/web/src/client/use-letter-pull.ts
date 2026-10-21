@@ -30,7 +30,6 @@ const resist = (offset: number) => {
   return offset;
 };
 
-/** The letter springs between its share options and its extended, reversible airplane reveal. */
 export function useLetterPull(
   motion: Motion,
   enabled: boolean,

@@ -15,24 +15,17 @@ import {
   vec,
 } from './iso';
 
-/**
- * A ship in a bottle on a cradle stand at the desk's front right. The bottle lies along x; its own
- * frame is (a, p, q): a along the axis from the middle of the stand, p and q across it, q up while
- * it rests. Rolling turns p and q about the axis, so the ship turns with the glass.
- */
 export const BOTTLE = {
   x: 82,
   y: 39,
   radius: 6,
-  /** The axis's height while the bottle lies in the cradles. */
   rest: 9,
 } as const;
 
 export type BottleStage = 'standing' | 'falling' | 'broken' | 'fading' | 'returning';
 
 const R = BOTTLE.radius;
-/** Inside the glass, where the putty sea and the ship must stay. */
-export const BOTTLE_INSIDE = R - 0.5;
+const BOTTLE_INSIDE = R - 0.5;
 const FLOOR_REST = DESK_EDGE.floor + R;
 
 const clamp = (t: number) => Math.max(0, Math.min(1, t));
@@ -41,13 +34,11 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 const STAND = {
   base: { x: BOTTLE.x - 17, y: BOTTLE.y - 7.5, w: 30, d: 15, r: 1.5 },
   height: 2.4,
-  /** Each cradle is a pair of wedges, a V the bottle lies in, this thick along the axis. */
   cradles: [-13, 4],
   thickness: 2.2,
   top: 5.6,
 } as const;
 
-/** The back wedge's slope touches the glass here, below and behind the axis. */
 const TOUCH = (230 * Math.PI) / 180;
 
 function wedge(side: -1 | 1, a: number): Vec3[] {
@@ -66,19 +57,15 @@ function wedge(side: -1 | 1, a: number): Vec3[] {
   ];
 }
 
-/** Where the bottle's axis passes over the front wedges' crest, and where it drops off them. */
 const LIP = {
   y: wedge(1, 0)[2]?.[1] ?? BOTTLE.y,
   edge: wedge(1, 0)[3]?.[1] ?? BOTTLE.y,
   z: STAND.top + R,
 } as const;
 
-/** World units per second squared. */
 const GRAVITY = 600;
-/** How fast it is rolling as it leaves the stand. */
 const SPEED = 30;
 const WOBBLE_MS = 300;
-/** Speeding up evenly from rest over the lip: y grows with the square of time. */
 const PUSH_MS = ((2 * (LIP.edge - BOTTLE.y)) / SPEED) * 1000;
 const DROP_MS = Math.sqrt((2 * (LIP.z - R)) / GRAVITY) * 1000;
 const DESK_Y = LIP.edge + (SPEED * DROP_MS) / 1000;
@@ -87,7 +74,6 @@ const FALL_MS = Math.sqrt((2 * (R - FLOOR_REST)) / GRAVITY) * 1000;
 const LANDING_Y = DESK_EDGE.front + (SPEED * FALL_MS) / 1000;
 const IMPACT_MS = WOBBLE_MS + PUSH_MS + DROP_MS + ROLL_MS + FALL_MS;
 const SETTLE_MS = 650;
-/** Rolling to a stop on the floor: speed decays over this many seconds. */
 const SKID = 0.12;
 
 export const BOTTLE_DURATION: Record<BottleStage, number> = {
@@ -111,12 +97,10 @@ function standHeight(y: number): number {
   return BOTTLE.rest + (LIP.z - BOTTLE.rest) * smooth(clamp((y - BOTTLE.y) / (LIP.y - BOTTLE.y)));
 }
 
-export interface BottlePose {
+interface BottlePose {
   readonly y: number;
   readonly z: number;
-  /** Radians turned about the axis; rolling toward the reader turns it negative. */
   readonly spin: number;
-  /** Milliseconds since the glass hit the floor. */
   readonly sinceImpact: number | undefined;
 }
 
@@ -127,7 +111,6 @@ const posed = (y: number, z: number, sinceImpact?: number): BottlePose => ({
   sinceImpact,
 });
 
-/** Knocked, it rocks in its cradles, rolls over the front ones, off the desk, and onto the floor. */
 export function fallAt(ms: number): BottlePose {
   let t = Math.max(0, ms);
   if (t < WOBBLE_MS) {
@@ -163,7 +146,6 @@ export function fallAt(ms: number): BottlePose {
 
 const RESTING = posed(BOTTLE.y, BOTTLE.rest);
 
-/** The bottle's pose and opacity at `elapsed` milliseconds into `stage`. */
 export function bottleAt(
   stage: BottleStage,
   elapsed: number,
@@ -185,7 +167,6 @@ export function bottleAt(
   }
 }
 
-/** Seeded, so the cracks and shards are the same every time. */
 function random(seed: number) {
   let state = seed;
   return () => {
@@ -198,7 +179,6 @@ function random(seed: number) {
 
 type Crack = readonly (readonly [a: number, s: number])[];
 
-/** Crack lines over the glass, as (a, arc length) from where each star of cracks starts. */
 function crackStar(seed: number, branches: number, reach: number): Crack[] {
   const next = random(seed);
   const lines: [number, number][][] = [];
@@ -223,10 +203,6 @@ function crackStar(seed: number, branches: number, reach: number): Crack[] {
   return lines;
 }
 
-/**
- * Where the glass cracks: under the bottle, where it struck the floor, and across the side turned to
- * the reader, where the blow is seen.
- */
 const STARS = [
   { a: -5, facing: 'floor', turn: 0, cracks: crackStar(7, 7, 10) },
   { a: -9, facing: 'reader', turn: 0.15, cracks: crackStar(11, 6, 7) },
@@ -245,7 +221,6 @@ const SHARDS = (() => {
   }));
 })();
 
-/** The glass's outline along its axis: (a, radius), base to lip. */
 const PROFILE = [
   [-19, 5.2],
   [-18.3, R],
@@ -272,7 +247,6 @@ const stroke = (d: string, tone: 'hi' | 'mid' | 'lo' | 'faint', dotted = false):
 interface Rig {
   readonly a: number;
   readonly top: number;
-  /** Each square sail: its foot and head heights, and half its width at each. */
   readonly sails: readonly (readonly [
     foot: number,
     head: number,
@@ -307,7 +281,6 @@ const MASTS: readonly Rig[] = [
     ],
   },
 ];
-/** Sails fill with a following wind, bellying forward, toward the bow. */
 const BELLY = 0.7;
 const BOWSPRIT: readonly [Vec3, Vec3] = [
   [7.4, 0, 0],
@@ -503,19 +476,14 @@ function shipParts(toWorld: (local: Vec3) => Vec3): BottlePart[] {
   return upright ? [...sea0, ...hull, ...rig] : [...rig, ...hull, ...sea0];
 }
 
-export interface BottleDrawing {
-  /** A soft shadow on the floor once the bottle is over it. */
+interface BottleDrawing {
   readonly shadow: { readonly d: string; readonly opacity: number } | undefined;
   readonly shards: readonly string[];
-  /** The stand's base and the wedges behind the bottle. */
   readonly stand: readonly BottlePart[];
-  /** The front wedges, drawn over the bottle while it lies in them. */
   readonly cradle: readonly BottlePart[];
   readonly cradleInFront: boolean;
   readonly glass: string;
-  /** Cracks on the far side of the glass, seen through it, and on the near side. */
   readonly cracks: { readonly far: string; readonly near: string };
-  /** The putty sea, the ship, and the cork, back to front. */
   readonly inside: readonly BottlePart[];
   readonly rims: readonly BottlePart[];
   readonly glints: readonly string[];
@@ -541,7 +509,6 @@ const CRADLE_PARTS: BottlePart[] = STAND.cradles.map((a) =>
   solid(prism(wedge(1, a), [STAND.thickness, 0, 0], 0.3)),
 );
 
-/** A ring of the bottle, round its axis at `a`. */
 function ring(center: Vec3, a: number, radius: number, steps = 28): Vec3[] {
   return circle(0, 0, radius, 0, steps).map(([p, q]): Vec3 => vec.add(center, [a, p, q]));
 }
@@ -584,7 +551,6 @@ export function bottleDrawingAt({ y, z, spin, sinceImpact }: BottlePose): Bottle
   const shards: string[] = [];
   if (sinceImpact !== undefined) {
     const landedSpin = -(LANDING_Y - BOTTLE.y) / R;
-    /** The angle round the axis, in the bottle's own frame, of a world direction across it. */
     const localAngle = (y: number, z: number) =>
       Math.atan2(
         z * Math.cos(landedSpin) - y * Math.sin(landedSpin),
@@ -682,7 +648,6 @@ export function bottleDrawingAt({ y, z, spin, sinceImpact }: BottlePose): Bottle
   };
 }
 
-/** The bottle and its stand at rest: where a click knocks it over. */
 export const BOTTLE_AREA = areaOf(
   [
     ...PROFILE.flatMap(([a, radius]) => ring([BOTTLE.x, BOTTLE.y, BOTTLE.rest], a, radius)),

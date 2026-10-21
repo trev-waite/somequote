@@ -1,12 +1,3 @@
-/**
- * Fails if commits add credentials or credential files. Every added line of every commit is
- * scanned, so a secret deleted in a later commit is still caught: it stays in history. Commit
- * messages, and the message of an annotated tag passed as <head>, are scanned too.
- *
- * Usage: bun tools/secret-scan/src/cli.ts [<base>] [<head>]
- *   <base>  scan <base>..<head>; empty or omitted scans all of <head>'s history
- *   <head>  a commit or tag; defaults to HEAD
- */
 import { execFileSync } from 'node:child_process';
 import { type Finding, scanLog, scanMessage } from './secrets';
 

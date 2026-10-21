@@ -1,9 +1,3 @@
-/**
- * Checks a deployed site: the page, its module bundle, and today's quote all load with the
- * production headers. Retries for a short while so a just-finished deploy can propagate.
- *
- * Usage: bun scripts/smoke.ts https://somequote.com   (or http://127.0.0.1:4173 for a local preview)
- */
 import { PublicationDto } from '../src/shared/api-contract';
 
 const ATTEMPTS = 6;

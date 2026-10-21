@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type ColorScheme = 'light' | 'dark';
+type ColorScheme = 'light' | 'dark';
 
 /** Also read by `public/color-scheme.js`, which applies the scheme before the first paint. */
 export const COLOR_SCHEME_KEY = 'somequote.color-scheme';
@@ -70,7 +70,6 @@ export function useColorScheme(): ColorScheme {
   return useSyncExternalStore(subscribe, currentColorScheme, () => 'light');
 }
 
-/** Switches and remembers the scheme. The page changes at once: no fade, no transition. */
 export function switchColorScheme(scheme: ColorScheme): void {
   try {
     localStorage.setItem(COLOR_SCHEME_KEY, scheme);

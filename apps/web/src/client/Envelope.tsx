@@ -38,12 +38,10 @@ const SEAMS = [
 const FLAP = `M0 0L${W * 0.42} ${F * 0.84}Q${W / 2} ${F} ${W * 0.58} ${F * 0.84}L${W} 0Z`;
 const LETTER_EDGE = `M0 0.5V${ENVELOPE.letter.height - 0.5}q0 0.5 0.5 0.5h${LETTER_WIDTH - 1}q0.5 0 0.5 -0.5V0.5`;
 const WRITING_SIZE = 3.4;
-/** The shadow the lifted envelope casts on the desk behind it, in viewBox units. */
 const SHADOW = { opacity: 0.3, drop: 6 } as const;
 
 const restingStyle = overlay(RESTING_BOX);
 const liftedStyle = overlay(LIFTED_BOX);
-/** The options sit inside the lifted letter's own overlay. */
 const optionStyles = OPTION_BOXES.map((box) => overlay(box, LIFTED_BOX));
 const pullStyle = overlay(LETTER_PULL_BOX, LIFTED_BOX);
 const airplaneStyle = overlay(AIRPLANE_BOX, LIFTED_BOX);
@@ -60,11 +58,9 @@ type CopyState = 'idle' | 'copied' | 'failed';
 interface Clock {
   readonly phase: Phase;
   readonly elapsed: number;
-  /** Where the current move started, when it took over from another part way through. */
   readonly from?: Pose;
 }
 
-/** Scrolling further than this, in CSS pixels, while the letter is out puts it away. */
 const SCROLL_SLOP = 4;
 
 interface EnvelopeProps {
@@ -72,11 +68,6 @@ interface EnvelopeProps {
   readonly quote: QuoteDto | undefined;
 }
 
-/**
- * An open envelope on the desk. Clicking it lifts it off the desk to face the reader with a letter
- * of share options. Clicking anywhere else, Escape, or scrolling folds it shut and puts it back on
- * the desk, where it opens again at once.
- */
 export function Envelope({ motion, quote }: EnvelopeProps) {
   const [{ phase, elapsed, from }, setClock] = useState<Clock>({ phase: 'open', elapsed: 0 });
   const [copy, setCopy] = useState<CopyState>('idle');
@@ -98,7 +89,6 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
   const firstOptionRef = useRef<HTMLButtonElement>(null);
   const scrollAtLift = useRef(0);
 
-  /** Starts `move` from wherever the envelope has got to. */
   const turnTo = (move: 'lifting' | 'returning', letterOffset = pull.offset) =>
     setClock(({ phase, elapsed, from }) => {
       const pose = poseAt(phase, elapsed, from).pose;
@@ -189,7 +179,6 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
       setCopy('idle');
       turnToRef.current('returning');
     };
-    // While the letter is out, a press elsewhere only puts it away: the lamp and its cord ignore it.
     const onPress = (event: PointerEvent) => {
       if (outside(event)) event.stopPropagation();
     };

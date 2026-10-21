@@ -18,7 +18,6 @@ export interface ContentEntries {
   readonly bible: readonly BibleEntry[];
 }
 
-/** Every editorial rule the collection must satisfy, as human-readable problems. Empty means valid. */
 export function findContentProblems({ general, bible }: ContentEntries): string[] {
   const problems: string[] = [];
   const report = (id: string, problem: string) => problems.push(`${id}: ${problem}`);

@@ -21,15 +21,9 @@ interface BookState {
 interface BookProps {
   readonly motion: Motion;
   readonly controls: RefObject<HTMLDivElement | null>;
-  /** A layer painted after the lamp and clock, which stand behind the book. */
   readonly above: RefObject<SVGGElement | null>;
 }
 
-/**
- * The resting book stays in the desk's painter order, under the lamp's light. A turning sheet or
- * cover rises above the desk, so it draws in `above`, in front of the lamp. The native buttons live
- * outside the hidden SVG.
- */
 export function Book({ motion, controls, above }: BookProps) {
   const [state, setState] = useState<BookState>({ position: BOOK_MIDDLE });
   const [host, setHost] = useState<HTMLDivElement | null>(null);

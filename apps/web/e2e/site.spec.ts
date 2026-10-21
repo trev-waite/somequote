@@ -14,7 +14,6 @@ test.use({
   },
 });
 
-/** Console errors, uncaught exceptions, CSP violations, and failed requests, as they happen. */
 function browserProblems(page: Page): string[] {
   const problems: string[] = [];
   page.on('console', (message) => {

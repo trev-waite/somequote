@@ -44,10 +44,6 @@ const solid = (paths: ReturnType<typeof prism>, tone: 'mid' | 'lo' = 'mid'): Boo
 const stroke = (d: string, tone: 'lo' | 'faint' = 'lo'): BookPart => ({ kind: 'line', d, tone });
 const samples = Array.from({ length: 13 }, (_, i) => i / 12);
 
-/**
- * A flat face of the book lit by the lamp, the same way wherever it is: lying in the book, turning
- * over, or landing. Paper is shaded too; a cover keeps its own colour and only takes the light.
- */
 function lit(
   points: readonly Vec3[],
   paper: boolean,
@@ -221,7 +217,7 @@ function hitArea(surface: Surface, cover = false) {
   };
 }
 
-export interface TurningSheet {
+interface TurningSheet {
   readonly panels: readonly BookPart[];
   readonly outline: string;
   readonly writing: string;
@@ -256,7 +252,6 @@ function turningSheet(
   return { panels, outline: line(outline, true), writing: writing(surface, page) };
 }
 
-/** A leaf leaves its source stack before landing on the other; the total amount of paper is fixed. */
 export function bookDrawingAt(position: number, target = position, progress = 0): BookDrawing {
   const p = smooth(clamp(progress));
   if (target !== position && p >= 1) return bookDrawingAt(target);
@@ -348,7 +343,7 @@ export function bookDrawingAt(position: number, target = position, progress = 0)
   };
 }
 
-export interface BookDrawing {
+interface BookDrawing {
   readonly parts: readonly BookPart[];
   readonly cover: readonly BookPart[];
   readonly sheet: TurningSheet | undefined;

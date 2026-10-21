@@ -34,7 +34,6 @@ function showGlass(motion: Motion = 'full') {
   const layer = view.container.querySelector<HTMLDivElement>('.magnifier-layer');
   const grip = view.container.querySelector<HTMLButtonElement>('.magnifier-grip');
   if (!desk || !layer || !grip) throw new Error('missing magnifying glass');
-  // Client pixels are drawing units, so pointer positions can be given in the drawing's terms.
   vi.spyOn(desk, 'getScreenCTM').mockReturnValue(new DOMMatrix());
   const pointer = (type: string, x: number, y: number) =>
     act(() => {

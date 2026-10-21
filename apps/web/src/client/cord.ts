@@ -1,27 +1,17 @@
 import type { Point } from './iso';
 
-/**
- * The lamp's ball-chain pull cord: a Verlet rope hanging from the shade, in SVG user units.
- * Pulling it past `switchAt` clicks the switch once per pull, the way a real pull chain does.
- */
 export const CORD = {
   length: 36,
   links: 14,
   gravity: 1800,
-  /** Velocity kept per step; ball chain is limp but swings for a few seconds. */
   damping: 0.99,
   iterations: 20,
   stepSeconds: 1 / 120,
-  /** How far past its resting length the cord must be drawn to click the switch. */
   switchAt: 9,
-  /** The furthest the cord can be drawn out; resistance grows on the way there. */
   maxStretch: 14,
-  /** The pull is heavier than a ball, so the end of the cord swings with more weight. */
   pullWeight: 3,
   grabRadius: 16,
-  /** A mouse pointer pushes the cord like a fingertip of this radius. */
   fingerRadius: 4.5,
-  /** The cord retracts into the socket on a spring once it is let go. */
   recoil: { stiffness: 900, damping: 22 },
   tug: { seconds: 0.22, stretch: 12, recoil: { stiffness: 360, damping: 30 } },
   maxLinkSpeed: 6,
@@ -32,12 +22,10 @@ interface Link {
   y: number;
   px: number;
   py: number;
-  /** Inverse mass: 0 pins the link in place. */
   w: number;
 }
 
-export interface CordOptions {
-  /** Called when a pull clicks the switch. */
+interface CordOptions {
   readonly onSwitch: () => void;
 }
 
@@ -57,7 +45,6 @@ export class Cord {
   #grabbed: {
     link: Link;
     index: number;
-    /** Where the pointer held the cord, relative to the link it took hold of. */
     offset: Point;
     target: Point;
     switched: boolean;
@@ -85,7 +72,6 @@ export class Cord {
     return this.#links;
   }
 
-  /** How far the cord is drawn out of the socket beyond its resting length. */
   get stretch(): number {
     return this.#stretch;
   }
@@ -107,7 +93,6 @@ export class Cord {
     }
   }
 
-  /** Takes hold of the link nearest `point`; returns false when the cord is out of reach. */
   grab(point: Point): boolean {
     let nearest: { link: Link; index: number; distance: number } | null = null;
     for (const [index, link] of this.#links.entries()) {
@@ -158,7 +143,6 @@ export class Cord {
     this.#wake();
   }
 
-  /** Moves the fingertip that pushes the cord around; `null` lifts it away. */
   touch(finger: Point | null): void {
     if (!finger) {
       this.#sweepFinger();
@@ -171,7 +155,6 @@ export class Cord {
     if (this.#sweeps(from, finger)) this.#wake();
   }
 
-  /** A short pull, for when the switch is clicked without dragging the cord. */
   tug(): void {
     if (this.#grabbed) return;
     this.#tug = { elapsed: 0, from: this.#stretch };
@@ -180,7 +163,6 @@ export class Cord {
     this.#wake();
   }
 
-  /** Lets go and puts the cord straight back at rest, without swinging, for reduced motion. */
   settle(): void {
     this.#grabbed = null;
     this.#tug = null;
@@ -200,7 +182,6 @@ export class Cord {
     this.#stillSteps = 0;
   }
 
-  /** Whether a fingertip moving from `from` to `to` passes close to any link. */
   #sweeps(from: Point, to: Point): boolean {
     const margin = CORD.fingerRadius + this.#rest;
     const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / margin));

@@ -7,15 +7,12 @@ import type { Motion } from './reveal';
 
 interface Slide {
   readonly open: boolean;
-  /** How far out the drawer was when it was last told to move. */
   readonly from: number;
   readonly elapsed: number;
 }
 
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
-/** Shutting does not linger just short of flush, where the open drawer is drawn differently. */
 const easeInOut = (t: number) => t * t * (3 - 2 * t);
-/** A drawer part of the way out takes that share of a full slide. */
 const durationOf = (open: boolean, from: number) =>
   (open ? DRAWER.openMs : DRAWER.closeMs) * Math.abs((open ? 1 : 0) - from);
 
@@ -32,10 +29,6 @@ interface DrawerProps {
   readonly controls: RefObject<HTMLDivElement | null>;
 }
 
-/**
- * The desk's centre drawer, which slides open on a click or tap to show a letter, and shuts on the
- * next. It draws in the desk's painter order, before the desktop that overhangs it.
- */
 export function Drawer({ motion, controls }: DrawerProps) {
   const [slide, setSlide] = useState<Slide>({ open: false, from: 0, elapsed: 0 });
   const [host, setHost] = useState<HTMLDivElement | null>(null);

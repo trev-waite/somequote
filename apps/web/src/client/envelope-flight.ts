@@ -64,12 +64,10 @@ const ROUTE: readonly Vec3[] = [
   [100, 30, 50],
   [-20, 75, 38],
 ];
-/** The throw starts from rest: the aircraft gathers speed over this share of its route. */
 const THROW = 0.12;
 const launched = (t: number) =>
   (t < THROW ? (t * t) / (2 * THROW) : t - THROW / 2) / (1 - THROW / 2);
 
-/** A Catmull–Rom route keeps the aircraft's heading continuous through the turns. */
 function routeAt(progress: number, exitX: number): Vec3 {
   const end: Vec3 = vec.add([-90, -10, 60], vec.scale(SCREEN.right, exitX + 65));
   const points = [...ROUTE, end];
@@ -97,7 +95,6 @@ function routeAt(progress: number, exitX: number): Vec3 {
   );
 }
 
-/** Radians of bank per unit of curvature, before `atan` softens it. */
 const BANKING = 30;
 
 function flyingFrame(progress: number, exitX: number): EnvelopeFrame {
@@ -112,16 +109,14 @@ function flyingFrame(progress: number, exitX: number): EnvelopeFrame {
   const curvature =
     (4 * vec.dot(vec.add(vec.sub(ahead, center), vec.sub(behind, center)), right)) /
     vec.dot(travel, travel);
-  // It leans into each turn, lowering the wing on the inside.
   const bank = -Math.atan(curvature * BANKING);
   const u = vec.add(vec.scale(right, Math.cos(bank)), vec.scale(up, Math.sin(bank)));
   return makeFrame(center, u, v, 1.15);
 }
 
-export interface FlightDrawing {
+interface FlightDrawing {
   readonly frame: EnvelopeFrame;
   readonly pose: Pose;
-  /** 0 is the envelope rectangle; 1 is the folded aircraft. */
   readonly fold: number;
   readonly plane: boolean;
   readonly lightOffset?: Point;
@@ -188,11 +183,6 @@ export function flightDrawingAt(
 
 const { width: W, height: H } = ENVELOPE;
 
-/**
- * A corner of the paper and where it ends up on the aircraft, in envelope units about its centre
- * with z out of its back. Each corner moves during its own `span` of the fold, through `via` if
- * given, so the sheet creases down the middle before the wings sweep back.
- */
 interface Corner {
   readonly paper: Vec3;
   readonly plane: Vec3;
@@ -208,7 +198,6 @@ const CORNERS: readonly Corner[] = [
   { paper: [W / 2, H / 2, 0], plane: [5, 9, -1], span: [0, 0.6], via: [12, 12, 4] },
   { paper: [W / 2, -H / 2, 0], plane: [23, 16, 2], span: [0.3, 1], via: [6, -4, 14] },
 ];
-/** Two wing panels and the keel's two sides, all meeting at the nose. */
 const PANELS = [
   [0, 1, 2],
   [0, 2, 3],
@@ -222,11 +211,6 @@ function cornerAt({ paper, plane, span, via }: Corner, fold: number): Vec3 {
   return mix(mix(paper, via, t), mix(via, plane, t), t);
 }
 
-/**
- * The paper panels fold into wings and a keel, then travel in the desk's world space. `shade` is 0
- * on flat paper, so the sheet starts the same colour as the envelope, and grows with the fold for
- * panels turned from the light.
- */
 export function airplaneFaces({ frame, fold }: FlightDrawing) {
   const center = centerOf(frame);
   const corners = CORNERS.map((corner) => {

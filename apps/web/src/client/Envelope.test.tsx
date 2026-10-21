@@ -38,7 +38,6 @@ function stubNavigator(overrides: Record<string, unknown>) {
   vi.stubGlobal('navigator', stub);
 }
 
-/** Long enough for the envelope to finish any move, including landing and opening again. */
 const SETTLE_MS = 3000;
 
 function showDesk(motion: Motion = 'full') {

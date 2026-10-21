@@ -6,7 +6,6 @@
   font-display: block;
 }
 
-/* Spacing and line heights sit on an 8px grid. */
 :root {
   color-scheme: light dark;
 
@@ -67,7 +66,6 @@
   }
 }
 
-/* `data-color-scheme` is set before first paint by public/color-scheme.js and toggled by the lamp. */
 :root[data-color-scheme="light"] {
   color-scheme: light;
 }
@@ -126,7 +124,6 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Layout: two full-height scenes, the quote and the lamp, that the page snaps between. */
 .scene {
   min-height: var(--scene-height);
   scroll-snap-align: start;
@@ -140,7 +137,6 @@ body {
   display: grid;
 }
 
-/* The header and an equal-height footer keep the quote centred in its scene. */
 .scene-content {
   display: grid;
   grid-template-rows: var(--space-4) 1fr var(--space-4);
@@ -170,7 +166,6 @@ body {
   place-items: center;
 }
 
-/* Publication */
 .publication {
   display: flex;
   flex-direction: column;
@@ -367,7 +362,6 @@ body {
   }
 }
 
-/* Lamp scene */
 .scene-lamp {
   display: flex;
   flex-direction: column;
@@ -384,7 +378,6 @@ body {
   position: relative;
 }
 
-/* A transparent button over the lamp itself; the drawing underneath shows what it is. */
 .lamp-switch {
   position: absolute;
   margin: 0;
@@ -475,7 +468,6 @@ body {
   stroke-width: 1px;
 }
 
-/* The flip clock's cards: dark cards with paper-coloured figures in the quote's typeface. */
 .flip-window {
   fill: var(--clock-window);
 }
@@ -504,7 +496,6 @@ body {
   fill: var(--iso-mid);
 }
 
-/* Lit is light mode: the pool on the plate and the glow at the rim exist only while the lamp is on. */
 /*
  * Switched by an inherited property, not a selector on :root, so the lamp's light also shows in the
  * copies of the drawing a magnifying glass's lens draws: selectors do not reach into those.
@@ -528,7 +519,6 @@ body {
   stroke-linecap: round;
 }
 
-/* Zero-length dashes with round caps draw the ball chain as a line of beads. */
 .lamp-cord {
   fill: none;
   stroke: var(--iso-hi);
@@ -552,7 +542,6 @@ body {
   vector-effect: non-scaling-stroke;
 }
 
-/* Touches here pull the cord; everywhere else on the lamp they scroll the page. */
 .lamp-cord-zone {
   position: absolute;
   z-index: 1;
@@ -626,7 +615,6 @@ body {
   vector-effect: non-scaling-stroke;
 }
 
-/* The centre drawer: the dark opening in the apron shows behind it as it slides out. */
 .drawer-hollow {
   fill: var(--iso-shade-0);
   stroke: var(--iso-mid);
@@ -639,7 +627,6 @@ body {
   fill: var(--iso-shade-1);
 }
 
-/* The ship in a bottle: tinted glass over a putty sea, sails, and rigging. */
 .bottle-glass,
 .bottle-shard {
   fill: var(--glass-tint);
@@ -703,7 +690,6 @@ body {
   vector-effect: non-scaling-stroke;
 }
 
-/* Transparent controls over the drawer and the bottle, like the lamp switch. */
 .drawer-handle,
 .bottle-trigger {
   position: absolute;
@@ -895,7 +881,6 @@ body {
   text-anchor: middle;
 }
 
-/* Transparent controls over the drawing, like the lamp switch. */
 .envelope-trigger,
 .envelope-option,
 .envelope-pull,
@@ -961,7 +946,6 @@ body {
   stroke-width: 0.45;
 }
 
-/* Flat paper matches the envelope; creases and shading come in with the fold. */
 .paper-airplane path {
   fill: color-mix(in srgb, var(--iso-shade-0) calc(var(--shade) * 100%), var(--iso-face));
   stroke: color-mix(in srgb, var(--iso-hi) calc(var(--crease) * 100%), var(--iso-face));

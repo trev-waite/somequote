@@ -1,24 +1,16 @@
 import { ENVELOPE_SPOT } from './desk-geometry';
 import { planeMatrix, project, SCREEN, type Vec3, vec } from './iso';
 
-/**
- * The share envelope, in its own units: `u` runs along its width, `v` down its height from the
- * edge the flap hangs from. The reader sees its back, so the letter slides out between the open
- * flap (behind) and the back panel (in front).
- */
 export const ENVELOPE = {
   width: 40,
   height: 27,
   flap: 15,
   letter: { inset: 2, height: 42, travel: 31 },
-  /** The lifted envelope faces the reader at this size, centred here in viewBox units. */
   lifted: { scale: 3, x: 0, y: 26 },
-  /** How far it rises (world units) on its way off the desk. */
   hop: 14,
 } as const;
 
 export const LETTER_WIDTH = ENVELOPE.width - 2 * ENVELOPE.letter.inset;
-/** Each share option is a row on the letter, in letter units from its top edge. */
 export const LETTER_ROWS = { top: 9.4, height: 6.4, count: 3 } as const;
 export const LETTER_EXTENSION = 11;
 export const LETTER_AIRPLANE = {
@@ -26,15 +18,12 @@ export const LETTER_AIRPLANE = {
   height: 9.6,
 } as const;
 
-/** How far each part has moved: 0 is lying on the desk, letter in, flap open. */
 export interface Pose {
   readonly lift: number;
   readonly letter: number;
-  /** 0 is open, 1 is folded shut over the back. */
   readonly flap: number;
 }
 
-/** Just enough of the letter shows above the edge to say there is something inside. */
 const PEEK = (ENVELOPE.letter.inset + 2) / ENVELOPE.letter.travel;
 
 export type Phase = 'open' | 'lifting' | 'shown' | 'returning' | 'opening';
@@ -46,11 +35,6 @@ const SHUT: Pose = { lift: 0, letter: 0, flap: 1 };
 
 type Track = readonly [startMs: number, durationMs: number];
 
-/**
- * Each move eases its parts from one pose to the next, each part on its own track. Every part that
- * differs between a move's start and any pose it can interrupt has a track, so an interrupted move
- * still ends exactly at `to`.
- */
 const MOVES: Record<
   Move,
   {
@@ -82,10 +66,6 @@ const MOVES: Record<
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
-/**
- * Where the envelope is `elapsedMs` into `phase`, and the phase that follows once it settles. A move
- * that interrupted another starts `from` the pose the envelope had reached.
- */
 export function poseAt(phase: Phase, elapsedMs: number, from?: Pose): { pose: Pose; next?: Phase } {
   switch (phase) {
     case 'open':
@@ -114,7 +94,6 @@ export function poseAt(phase: Phase, elapsedMs: number, from?: Pose): { pose: Po
 const DESK_U: Vec3 = [Math.cos(ENVELOPE_SPOT.turn), Math.sin(ENVELOPE_SPOT.turn), 0];
 const DESK_V: Vec3 = [-Math.sin(ENVELOPE_SPOT.turn), Math.cos(ENVELOPE_SPOT.turn), 0];
 const restingAt = project(ENVELOPE_SPOT.center);
-/** A point in front of the desk that projects to the lifted envelope's centre. */
 const LIFTED_CENTER = vec.add(
   ENVELOPE_SPOT.center,
   vec.add(
@@ -125,10 +104,6 @@ const LIFTED_CENTER = vec.add(
 
 const mix = (a: Vec3, b: Vec3, t: number) => vec.add(vec.scale(a, 1 - t), vec.scale(b, t));
 
-/**
- * The envelope's frame at `lift`: it rises in an arc, growing, while it turns from lying in the
- * desk to facing the reader. `u` and `v` are scaled to the envelope's size; `n` faces out of its back.
- */
 export function frameAt(lift: number) {
   const u = vec.normalize(mix(DESK_U, SCREEN.right, lift));
   const towardDown = mix(DESK_V, SCREEN.down, lift);
@@ -148,15 +123,11 @@ export function frameAt(lift: number) {
   return { origin, u: su, v: sv, n: vec.cross(u, v), size };
 }
 
-export interface EnvelopeDrawing {
-  /** SVG transforms that draw each part in its own units: the body and letter as above. */
+interface EnvelopeDrawing {
   readonly body: string;
   readonly letter: string;
-  /** Only the part above the opening is visible; the rest stays inside the envelope. */
   readonly letterHeight: number;
-  /** The flap is drawn from its hinge, its v axis running from the hinge to its point. */
   readonly flap: string;
-  /** Once it leaves the desk the flap is nearer the reader than the letter and the back panel. */
   readonly flapOver: boolean;
   readonly flapSide: 'inside' | 'outside';
 }
@@ -185,8 +156,7 @@ export function drawingAt(
   };
 }
 
-/** A box in viewBox units. */
-export interface Box {
+interface Box {
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -206,7 +176,6 @@ const atRest = frameAt(0);
 const at = (frame: typeof atRest, x: number, y: number) =>
   vec.add(frame.origin, vec.add(vec.scale(frame.u, x), vec.scale(frame.v, y)));
 
-/** The envelope on the desk, with its open flap: where a click lifts it. */
 export const RESTING_BOX = screenBox([
   at(atRest, 0, -ENVELOPE.flap),
   at(atRest, ENVELOPE.width, -ENVELOPE.flap),
@@ -217,7 +186,6 @@ export const RESTING_BOX = screenBox([
 const lifted = frameAt(1);
 const letterTop = ENVELOPE.letter.inset - ENVELOPE.letter.travel;
 
-/** The lifted envelope and the letter out of it: presses anywhere else put it away. */
 export const LIFTED_BOX = screenBox([
   at(lifted, 0, Math.min(letterTop, -ENVELOPE.flap)),
   at(lifted, ENVELOPE.width, ENVELOPE.height),
@@ -237,7 +205,6 @@ export const AIRPLANE_BOX = screenBox([
   ),
 ]);
 
-/** Each share option's row on the lifted letter. */
 export const OPTION_BOXES: readonly Box[] = Array.from({ length: LETTER_ROWS.count }, (_, row) => {
   const top = letterTop + LETTER_ROWS.top + row * LETTER_ROWS.height;
   return screenBox([

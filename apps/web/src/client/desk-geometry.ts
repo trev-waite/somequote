@@ -37,16 +37,11 @@ export type Part =
       readonly crease?: Tone | 'none';
     }
   | { readonly kind: 'line'; readonly d: string; readonly tone: Tone; readonly dotted?: boolean }
-  /**
-   * A face lit by the lamp: `light` is how strongly the lamp's pool falls on it (1 for a surface
-   * lying flat on the desk). With a `shade`, it is also painted as paper turned that far from the lamp.
-   */
   | { readonly kind: 'lit'; readonly d: string; readonly light: number; readonly shade?: number }
   | { readonly kind: 'light'; readonly layer: 'pool' | 'glow' }
   | {
       readonly kind: 'writing';
       readonly text: string;
-      /** Places the text in the plane of the surface it is written on. */
       readonly transform: string;
       readonly x: number;
       readonly y: number;
@@ -60,11 +55,9 @@ const stroke = (d: string, tone: Tone, dotted = false): Part =>
 
 const TOP: Plan = { x: -112, y: -56, w: 224, d: 112, r: 3 };
 const APRON = insetPlan(TOP, 9);
-/** The plane of the drawer fronts. */
 export const APRON_FRONT = APRON.y + APRON.d;
 const LEG_FLOOR = -66;
 
-/** Where things that fall off the desk go: over its front edge, down to the floor. */
 export const DESK_EDGE = { front: TOP.y + TOP.d, floor: LEG_FLOOR } as const;
 
 function legs(): Part[] {
@@ -80,9 +73,7 @@ function legs(): Part[] {
     ]);
 }
 
-/** Every drawer front: `x` and `w` along the apron, `z` and `h` up it. */
 export const DRAWER_FACE = { z: -18.5, h: 9, knob: { z: -14, length: 1.6, radius: 1.3 } } as const;
-/** The centre drawer opens; the two beside it are only drawn. */
 export const CENTER_DRAWER = { x: -42, w: 84 } as const;
 const SIDE_DRAWERS = [
   { x: -94, w: 44 },
@@ -141,14 +132,12 @@ function note(): Part[] {
   ];
 }
 
-/** Where the share envelope lies: front left, clear of the lamp's foot and the book. */
 export const ENVELOPE_SPOT = {
   center: [-88, 32, 0.3] satisfies Vec3,
   turn: (-7 * Math.PI) / 180,
 } as const;
 
 const LAMP_AT = { x: -54, y: -18 } as const;
-/** The lamp is drawn a little large for the desk, but not so large it crowds it. */
 const l = (size: number) => size * 0.84;
 const FOOT: Plan = { x: LAMP_AT.x - l(27), y: LAMP_AT.y - l(19), w: l(54), d: l(30), r: l(6) };
 const STEP = insetPlan(FOOT, l(5));
@@ -176,7 +165,6 @@ function shadeAt(x: number, degrees: number, radius: number = SHADE.radius): Vec
   return [x, SHADE.y + radius * Math.sin(angle), SHADE.z + radius * Math.cos(angle)];
 }
 
-/** The shade's D-shaped cross-section at `x`: the curved glass, closed underneath by a chord. */
 function shadeSection(x: number, radius: number, steps = 22): Vec3[] {
   return Array.from({ length: steps + 1 }, (_, step) =>
     shadeAt(x, -SHADE.sweep + (2 * SHADE.sweep * step) / steps, radius),
@@ -241,12 +229,10 @@ function clock(): Part[] {
   ];
 }
 
-/** The clock face, for drawing its cards: `origin` is the face's top left; u runs right, v down. */
 export const CLOCK_FACE = {
   origin: [CLOCK.x0, CLOCK.yFront, CLOCK_TOP] satisfies Vec3,
   u: [1, 0, 0] satisfies Vec3,
   v: [0, 0, -1] satisfies Vec3,
-  /** Out of the face, toward the reader: where a falling flap swings. */
   normal: [0, 1, 0] satisfies Vec3,
   window: {
     x: (CLOCK.width - cardsWidth) / 2 - 1.4,
@@ -272,28 +258,22 @@ export const DESK_PARTS: readonly Part[] = [
   ...grain(),
   ...note(),
   { kind: 'light', layer: 'pool' },
-  // The book lights its own pages, which turn and curve, so it comes after the pool.
   { kind: 'book' },
   ...lamp(),
   ...clock(),
 ];
 
-/** Where the pull chain hangs from: the bottom of the switch socket under the front rim. */
 export const CORD_ANCHOR = project([SOCKET.x, SOCKET.y, SOCKET.z]);
 
-/** The bulb inside the shade, where the lamp's light comes from. */
 const BULB: Vec3 = [LAMP_AT.x, SHADE.y + l(4), SHADE.z - l(7)];
 
-/** How directly a face at `point` with outward `normal` faces the bulb, relative to lying flat. */
 function facingLamp(point: Vec3, normal: Vec3): number {
   const toward = vec.normalize(vec.sub(BULB, point));
   return Math.max(0, vec.dot(vec.normalize(normal), toward)) / toward[2];
 }
 
-/** The lamp's light on a face, as a multiple of the pool on the desk below it. */
 export const lampLightOn = (point: Vec3, normal: Vec3) => Math.min(1.3, facingLamp(point, normal));
 
-/** Paper from white, lying flat, toward the darkest side shade as it turns away from the lamp. */
 export const paperShade = (point: Vec3, normal: Vec3) =>
   0.6 * Math.max(0, Math.min(1, 1 - facingLamp(point, normal)));
 
@@ -303,9 +283,7 @@ const poolCenter = project([LAMP_AT.x, LAMP_AT.y + 8, 0]);
 const POOL_RADIUS = 54;
 
 export const LAMP_LIGHT = {
-  /** Height of the shade's open rim above the desktop. */
   height: shadeAt(SHADE.x0, SHADE.sweep)[2],
-  /** The pool of light the lamp throws on the desk, clipped to the desk's top. */
   pool: {
     cx: round(poolCenter.x),
     cy: round(poolCenter.y),
@@ -313,7 +291,6 @@ export const LAMP_LIGHT = {
     ry: round(POOL_RADIUS * 0.55),
     clip: line(roundedPlan(TOP, 0), true),
   },
-  /** The front rim of the glass, where light spills from under the shade. */
   rim: `M${round(rimStart.x)} ${round(rimStart.y)}L${round(rimEnd.x)} ${round(rimEnd.y)}`,
 } as const;
 
@@ -335,7 +312,6 @@ const shadeOutline = [
   ...shadeSection(SHADE.x1, SHADE.radius + 0.8),
 ];
 
-/** The lamp's own area, which switches it when clicked or tapped. */
 export const LAMP_BOX = boxOf(hull([...roundedPlan(FOOT, 0), ...shadeOutline].map(project)), 2);
 
 export const VIEW_BOX = boxOf(
@@ -348,7 +324,6 @@ export const VIEW_BOX = boxOf(
   8,
 );
 
-/** Places an HTML overlay over a region of the drawing given in viewBox units, within `frame`. */
 export function overlay(
   { x, y, width, height }: ReturnType<typeof boxOf>,
   frame: ReturnType<typeof boxOf> = VIEW_BOX,

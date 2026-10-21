@@ -1,7 +1,3 @@
-/**
- * A credential format recognizable on its own, wherever it appears. When the pattern has a
- * capture group, the group is the secret and `accept` decides whether it is a real value.
- */
 interface Rule {
   readonly id: string;
   readonly pattern: RegExp;
@@ -23,7 +19,6 @@ const ASSIGNMENT = new RegExp(
   'gi',
 );
 
-/** A secret-looking name whose value starts on the next line (YAML `|`/`>` or a `\` continuation). */
 const DANGLING_NAME = new RegExp(
   String.raw`(?<![\w.-])(${NAME})\b["']?\s*[:=]\s*(?:[|>][+-]?\d*|\\)\s*$`,
   'i',
@@ -32,10 +27,8 @@ const DANGLING_NAME = new RegExp(
 const PLACEHOLDER =
   /^(?:your[-_ ]|<|placeholder|changeme|change[-_]me|dummy|fake[-_]|redacted|example|test[-_]|x{4,}|\.{3,}|\*{3,})|^[x.*-]+$/i;
 
-/** A reference such as `process.env.API_TOKEN_2` or `config.apiKey`, not a value. */
 const REFERENCE = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/;
 
-/** A value that could be a credential: mixed letters and digits, no template syntax, no placeholder. */
 function isCredentialValue(value: string): boolean {
   return (
     /[A-Za-z]/.test(value) &&
@@ -84,7 +77,6 @@ const RULES: readonly Rule[] = [
   },
 ];
 
-/** Files that hold credentials by convention. Their templates are fine. */
 const PRIVATE_FILES = [
   /(?:^|\/)\.env(?:\.[^/]+)?$/,
   /(?:^|\/)\.envrc$/,
@@ -94,7 +86,6 @@ const PRIVATE_FILES = [
 ];
 const TEMPLATE_FILE = /\.(?:example|sample|template)$/;
 
-/** Marks a line that intentionally contains a secret-shaped value. */
 const ALLOW_MARKER = 'secret-scan: allow';
 
 interface Detection {
@@ -108,21 +99,18 @@ export type Finding =
       readonly kind: 'file';
       readonly commit: string;
       readonly path: string;
-      /** Line in the file as of that commit; absent for a file that shouldn't be committed. */
       readonly line?: number;
       readonly rule: string;
       readonly excerpt: string;
     }
   | {
       readonly kind: 'message';
-      /** The commit, or the annotated tag, whose message holds the secret. */
       readonly commit: string;
       readonly line: number;
       readonly rule: string;
       readonly excerpt: string;
     };
 
-/** The prefix that names the credential type (`cfat_`, `ghp_`, `sk-ant-`), or a few characters. */
 export function redact(value: string): string {
   const prefix = /^[a-z]{2,6}[_-](?:[a-z]{2,6}[_-])?/i.exec(value)?.[0];
   return `${prefix ?? value.slice(0, 3)}…`;
@@ -152,12 +140,10 @@ export function findSecrets(text: string): Detection[] {
   return found;
 }
 
-/** The secret-looking name on a line whose value continues on the next line, if any. */
 function danglingName(text: string): string | undefined {
   return text.includes(ALLOW_MARKER) ? undefined : DANGLING_NAME.exec(text)?.[1];
 }
 
-/** The value on a continuation line, without indentation, quotes, or a trailing `\` or `,`. */
 function continuedValue(text: string): string {
   return text
     .trim()
@@ -180,7 +166,6 @@ const ESCAPES: Record<string, string> = {
   r: '\r',
 };
 
-/** The path in a `diff --git` header, including C-quoted ones git uses for `"`, `\`, or tabs. */
 function headerPath(header: string): string | undefined {
   const sides = header.slice('diff --git '.length);
   const quoted = /^"(?:[^"\\]|\\.)*" "((?:[^"\\]|\\.)*)"$/.exec(sides)?.[1];
@@ -195,11 +180,6 @@ function headerPath(header: string): string | undefined {
   return sides.slice(2, 2 + (sides.length - 'a/'.length - ' b/'.length) / 2);
 }
 
-/**
- * Findings in `git log -p --reverse --unified=1 --format='commit %H'` output: every added line of
- * every commit, plus every private file a commit adds. Each value is reported once, at the oldest
- * commit that added it.
- */
 export function scanLog(log: string): Finding[] {
   const findings: Finding[] = [];
   const seen = new Set<string>();
@@ -256,7 +236,6 @@ export function scanLog(log: string): Finding[] {
   return findings;
 }
 
-/** Findings in a commit or annotated-tag message. */
 export function scanMessage(commit: string, message: string): Finding[] {
   return message.split('\n').flatMap((text, index) =>
     findSecrets(text).map(({ rule, value }) => ({

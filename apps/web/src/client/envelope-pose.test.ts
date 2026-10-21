@@ -12,7 +12,6 @@ import {
 
 const END = Number.POSITIVE_INFINITY;
 
-/** Samples a move every 10ms until it settles. */
 function play(phase: Phase) {
   const frames = [];
   for (let ms = 0; ms < 5000; ms += 10) {

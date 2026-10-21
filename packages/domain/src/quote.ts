@@ -20,7 +20,6 @@ export function isCategory(value: string): value is Category {
   return (CATEGORIES as readonly string[]).includes(value);
 }
 
-/** A saying attributed to a person, taken from a named work, speech, or letter. */
 export interface GeneralQuote {
   readonly category: 'general';
   readonly id: QuoteId;
@@ -29,7 +28,6 @@ export interface GeneralQuote {
   readonly source: string;
 }
 
-/** An exact excerpt of scripture in a named translation, cited by reference instead of author. */
 export interface BibleVerse {
   readonly category: 'bible';
   readonly id: QuoteId;

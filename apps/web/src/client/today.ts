@@ -2,15 +2,14 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import type { PublicationDto } from '../shared/api-contract';
 import { fetchTodayPublication } from './api';
 
-export const QUOTE_FONT = '400 1em "Instrument Serif"';
+const QUOTE_FONT = '400 1em "Instrument Serif"';
 const FONT_WAIT_LIMIT_MS = 3000;
 
-export type TodayState =
+type TodayState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly publication: PublicationDto }
   | { readonly kind: 'failed' };
 
-/** Resolves once the quote font can render, or after a short limit so a slow font never blocks the quote. */
 export function quoteFontReady(): Promise<void> {
   if (typeof document === 'undefined' || !('fonts' in document)) return Promise.resolve();
   const loaded = document.fonts.load(QUOTE_FONT).then(
@@ -30,13 +29,7 @@ export function quoteFontReady(): Promise<void> {
 const ROLLOVER_RETRY_MS = [2000, 5000, 10_000, 30_000, 60_000] as const;
 const ROLLOVER_ATTEMPTS = 70;
 
-/**
- * Today's publication, revealed only when both the data and the quote font are ready, so the
- * words are laid out once, in their final typeface, before any of them animate.
- *
- * `rollOver` keeps the current quote visible and bypasses the browser cache until the server
- * publishes a later date, even if the device's clock reaches midnight first.
- */
+/** `rollOver` trusts the server's date, not the device clock, which may reach midnight first. */
 export function useTodayPublication(load = fetchTodayPublication) {
   const [state, setState] = useState<TodayState>({ kind: 'loading' });
   const shown = useRef<PublicationDto | undefined>(undefined);

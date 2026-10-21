@@ -16,7 +16,6 @@ const pointsOf = (d: string): Point[] =>
 const pathsOf = (part: BottlePart): string[] =>
   part.kind === 'solid' ? [part.paths.fill] : [part.d];
 
-/** Whether `point` lies inside the convex outline `ring`, allowing for rounding. */
 function within(ring: readonly Point[], point: Point): boolean {
   let sign = 0;
   for (let i = 0; i < ring.length; i++) {

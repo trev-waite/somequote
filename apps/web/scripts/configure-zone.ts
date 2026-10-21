@@ -1,21 +1,9 @@
-/**
- * Brings the somequote.com zone's security and performance settings to the state below.
- * Idempotent. Prints the plan by default; changes nothing unless `--apply` is passed.
- * Touches only the settings listed here and the rules it owns (matched by `ref`); rules added in
- * the dashboard are left alone.
- *
- * Requires CLOUDFLARE_API_TOKEN scoped to the zone with: Zone Read, Zone Settings Edit,
- * Zone WAF Edit, Single Redirect Edit, DNS Edit.
- *
- * Usage: CLOUDFLARE_API_TOKEN=… bun scripts/configure-zone.ts [--apply | --check]
- *   --check  read-only; exits 1 if the zone has drifted from this file (for scheduled CI)
- */
+/** Needs a zone token with Zone Read, Zone Settings, Zone WAF, Single Redirect, and DNS edit. */
 
 const ZONE = 'somequote.com';
 const API = 'https://api.cloudflare.com/client/v4';
 
 const SETTINGS: Record<string, unknown> = {
-  // Redirect every http:// request on every hostname in the zone to https:// at the edge.
   always_use_https: 'on',
   automatic_https_rewrites: 'on',
   min_tls_version: '1.2',
@@ -126,7 +114,6 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
   return envelope.result;
 }
 
-/** True when every field in `desired` has the same value in `actual`. Arrays compare as sets. */
 function includes(actual: unknown, desired: unknown): boolean {
   if (typeof desired !== 'object' || desired === null) return actual === desired;
   if (typeof actual !== 'object' || actual === null) return false;
@@ -147,7 +134,6 @@ interface Change {
   readonly run: () => Promise<unknown>;
 }
 
-/** Everything is read and checked before anything is written, so a failed check changes nothing. */
 const changes: Change[] = [];
 const problems: string[] = [];
 const notes: string[] = [];

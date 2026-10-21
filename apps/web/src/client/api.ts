@@ -4,10 +4,6 @@ export class TodayQuoteUnavailableError extends Error {
   override readonly name = 'TodayQuoteUnavailableError';
 }
 
-/**
- * Fetches today's publication and validates it against the shared contract before anything renders
- * it. `fresh` bypasses the browser's HTTP cache, for checking whether the day has turned over.
- */
 export async function fetchTodayPublication(
   signal?: AbortSignal,
   { fresh = false }: { readonly fresh?: boolean } = {},

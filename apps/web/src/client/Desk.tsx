@@ -20,12 +20,10 @@ import { Magnifier } from './Magnifier';
 import type { Motion } from './reveal';
 import { ShipInBottle } from './ShipInBottle';
 
-/** Movement beyond this many CSS pixels turns a press on the cord into a pull rather than a click. */
 const DRAG_SLOP_PX = 4;
 const CLICK_SUPPRESSION_MS = 400;
 
 const lampSwitchStyle = overlay(LAMP_BOX);
-/** The part of the drawing that grabs the cord instead of scrolling the page on touch screens. */
 const cordZoneStyle = overlay({
   x: CORD_ANCHOR.x - 13,
   y: CORD_ANCHOR.y - 2,
@@ -33,7 +31,6 @@ const cordZoneStyle = overlay({
   height: CORD.length + 16,
 });
 
-/** A smooth line through every link, drawn as beads by the stroke's dash pattern. */
 function cordPath(links: readonly Point[]): string {
   const [first, ...rest] = links;
   if (!first) return '';
@@ -51,16 +48,9 @@ function cordPath(links: readonly Point[]): string {
 interface DeskProps {
   readonly remainingMs: number;
   readonly motion: Motion;
-  /** Today's quote, for the message the envelope shares, once it has loaded. */
   readonly quote: QuoteDto | undefined;
 }
 
-/**
- * A writer's desk with a banker's lamp, a flip clock, and an envelope for sharing. The lamp switches the color scheme (lit is
- * light mode): click it, or pull its cord, which a mouse pointer can also brush and swing. The clock
- * counts down to the next quote. The centre drawer opens on a letter, the ship in a bottle can be
- * knocked off the desk, and a magnifying glass can be picked up to look closer at all of it.
- */
 export function Desk({ remainingMs, motion, quote }: DeskProps) {
   const scheme = useColorScheme();
   const sceneRef = useRef<HTMLDivElement>(null);
@@ -178,7 +168,6 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
     };
     const onHover = (event: PointerEvent) => {
       if (event.pointerType !== 'mouse' || pulling || still()) return;
-      // A magnifying glass in hand passes over the cord without brushing it.
       if (event.target instanceof Element && event.target.closest('.magnifier-grip')) return;
       const point = toDrawing(event);
       if (!point) return;

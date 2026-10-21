@@ -86,7 +86,6 @@ describe('book geometry', () => {
 
     const landing = bookDrawingAt(BOOK_MIDDLE, BOOK_MIDDLE + 1, 0.97).sheet?.panels ?? [];
     const landed = bookDrawingAt(BOOK_MIDDLE + 1).parts;
-    // The covers' light comes first, then each stack's: the left stack is the one turned onto.
     const [, , leftPage] = lamp(landed);
     expect(lamp(landing)[0]?.light).toBeCloseTo(leftPage?.light ?? Number.NaN, 1);
     const leftPaper = paper(landed).slice(0, 12);

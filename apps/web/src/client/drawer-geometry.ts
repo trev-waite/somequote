@@ -14,20 +14,14 @@ import {
 } from './iso';
 
 export const DRAWER = {
-  /** How far the drawer slides out of the apron, in world units. */
   travel: 30,
   depth: 40,
   panel: 1.5,
-  /** The box sits this far inside the opening on every side, leaving a dark gap round it. */
   gap: 0.6,
   wall: 1.1,
   floor: 0.8,
   openMs: 560,
   closeMs: 440,
-  /**
-   * The letter lies `back` from the inside of the drawer front, far enough that the front does not
-   * hide it from a reader looking down at the open drawer.
-   */
   letter: {
     text: 'Made by Trevor',
     width: 44,
@@ -52,7 +46,6 @@ const solid = (paths: ReturnType<typeof prism>, tone: 'mid' | 'lo' = 'mid'): Dra
   tone,
 });
 
-/** Keeps the part of a horizontal polygon that is out of the desk, in front of the apron. */
 function outOfDesk(ring: readonly Vec3[]): Vec3[] {
   const kept: Vec3[] = [];
   ring.forEach((point, index) => {
@@ -67,23 +60,15 @@ function outOfDesk(ring: readonly Vec3[]): Vec3[] {
   return kept;
 }
 
-export interface DrawerDrawing {
-  /** The dark opening in the apron, behind the drawer; absent while it is shut. */
+interface DrawerDrawing {
   readonly hollow: string | undefined;
-  /**
-   * Painter's order is `back`, the letter, then `front`. Only what is out of the desk is drawn; the
-   * desktop, painted after, hides whatever its overhang covers.
-   */
   readonly back: readonly DrawerPart[];
-  /** The inside of the drawer's bottom, in shadow, out of the desk. */
   readonly floor: string | undefined;
-  /** The letter lying in the drawer, if any of it is out of the desk. */
   readonly letter: { readonly sheet: string; readonly parts: readonly DrawerPart[] } | undefined;
   readonly front: readonly DrawerPart[];
   readonly area: ReturnType<typeof areaOf>;
 }
 
-/** The centre drawer `openness` of the way out: 0 is shut flush with the apron, 1 fully open. */
 export function drawerDrawingAt(openness: number): DrawerDrawing {
   const out = Math.max(0, Math.min(1, openness)) * DRAWER.travel;
   const front = APRON_FRONT + out;
@@ -157,7 +142,6 @@ export function drawerDrawingAt(openness: number): DrawerDrawing {
           'lo',
         )
       : undefined;
-  // Raised from its footprint, so its front is a side face shaded exactly like the apron round it.
   const panelBack = Math.max(APRON_FRONT, inner);
   const panel = solid(
     slab(

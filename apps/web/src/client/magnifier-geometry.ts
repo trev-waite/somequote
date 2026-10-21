@@ -1,13 +1,8 @@
 import { type Part, VIEW_BOX } from './desk-geometry';
 import { areaOf, line, type Point, prism, project, rod, SCREEN, type Vec3, vec } from './iso';
 
-/**
- * A reading glass: a round lens in a rim, with a handle. It lies on the desk between the book and
- * the ship in a bottle; picked up, it turns to face the reader, grows nearer, and magnifies.
- */
 export const MAGNIFIER = {
   rest: { x: 31, y: 28 },
-  /** The handle's direction lying on the desk: toward the reader's right. */
   turn: Math.atan2(0.62, 0.78),
   lens: 6.4,
   rim: 0.9,
@@ -15,14 +10,12 @@ export const MAGNIFIER = {
   ferrule: { length: 2.4, radius: 0.95 },
   handle: { length: 11.5, radius: 1.15 },
   cap: { length: 0.9, radius: 1.3 },
-  /** Held up, it is this many times nearer and larger, its handle angled down to the right. */
   held: { size: 3.4, angle: (52 * Math.PI) / 180, magnification: 2.3 },
   liftMs: 700,
   dropMs: 720,
 } as const;
 
-/** The glass's own axes: `u` along the handle and `v` across the lens, `n` out of its face. */
-export interface MagnifierFrame {
+interface MagnifierFrame {
   readonly center: Vec3;
   readonly u: Vec3;
   readonly v: Vec3;
@@ -49,21 +42,17 @@ const HELD_U = vec.add(
   vec.scale(SCREEN.right, Math.cos(MAGNIFIER.held.angle)),
   vec.scale(SCREEN.down, Math.sin(MAGNIFIER.held.angle)),
 );
-/** Held glasses float in front of the desk; only where they project matters. */
 const HELD_BASE: Vec3 = vec.add(REST.center, [0, 0, 30]);
 const heldBaseAt = project(HELD_BASE);
 
-/** Where the lens's centre is drawn, lying on the desk. */
 export const REST_LENS = project(REST.center);
 
-/** From the lens's centre to the middle of the handle, where a held glass is gripped. */
 export const GRIP: Point = (() => {
   const reach =
     (LENS + MAGNIFIER.ferrule.length + MAGNIFIER.handle.length / 2) * MAGNIFIER.held.size;
   return { x: reach * Math.cos(MAGNIFIER.held.angle), y: reach * Math.sin(MAGNIFIER.held.angle) };
 })();
 
-/** Keeps a held lens's centre over the drawing, so the glass cannot be lost off its edge. */
 export function clampLens({ x, y }: Point): Point {
   const margin = LENS * MAGNIFIER.held.size * 0.4;
   return {
@@ -72,13 +61,8 @@ export function clampLens({ x, y }: Point): Point {
   };
 }
 
-/** Where a glass picked up without being dragged is held: just above where it lay. */
 export const HOVER_LENS = clampLens({ x: REST_LENS.x, y: REST_LENS.y - 26 });
 
-/**
- * The glass `lift` of the way from lying on the desk to held up with its lens centred on `lens`
- * (in drawing units): it rises in an arc while it turns to face the reader and comes nearer.
- */
 export function magnifierFrameAt(lift: number, lens: Point): MagnifierFrame {
   const e = smooth(Math.max(0, Math.min(1, lift)));
   const held = vec.add(
@@ -103,7 +87,6 @@ export function magnifierFrameAt(lift: number, lens: Point): MagnifierFrame {
 const cross = (o: Point, a: Point, b: Point) =>
   (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
 
-/** The part of convex polygon `subject` inside convex polygon `clip` (Sutherland–Hodgman). */
 function overlap(subject: readonly Point[], clip: readonly Point[]): Point[] {
   const turn = Math.sign(
     clip.reduce((sum, p, i) => sum + cross({ x: 0, y: 0 }, p, clip[(i + 1) % clip.length] ?? p), 0),
@@ -132,14 +115,11 @@ function overlap(subject: readonly Point[], clip: readonly Point[]): Point[] {
 }
 
 export interface MagnifierDrawing {
-  /** A soft shadow cast on the desk below a raised glass. */
   readonly shadow: { readonly d: string; readonly opacity: number } | undefined;
   readonly rim: readonly MagnifierPart[];
   readonly lens: {
-    /** The opening on the near face of the rim, and on its far face: through both is the lens. */
     readonly near: string;
     readonly far: string;
-    /** Where the near and far openings overlap: what can be seen through the glass. */
     readonly opening: readonly Point[];
     readonly center: Point;
   };
@@ -175,7 +155,6 @@ export function magnifierDrawingAt(frame: MagnifierFrame, lift: number): Magnifi
   const gripAt = vec.add(ferruleAt, along(ferrule.length));
   const capAt = vec.add(gripAt, along(grip.length));
   const end = vec.add(capAt, along(cap.length));
-  /** Rings round the grip, on the side the reader sees. */
   const bands = [0.18, 0.32, 0.46].map((share) => {
     const middle = vec.add(gripAt, along(grip.length * share));
     const side = vec.cross(u, n);

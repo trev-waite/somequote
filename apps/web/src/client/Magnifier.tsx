@@ -24,20 +24,15 @@ import type { Motion } from './reveal';
 // Separate <use> targets keep cord updates from rebuilding the entire magnified scene.
 const MAGNIFIED_LAYERS = ['desk-body', 'desk-ship', 'desk-cord', 'desk-above'] as const;
 
-/** Movement beyond this many CSS pixels turns a press on the glass into a drag. */
 const DRAG_SLOP_PX = 4;
 const SCROLL_SLOP = 4;
-/** Each arrow key press moves a held glass this far, in drawing units; with Shift, three times. */
 const KEY_STEP = 5;
 
 interface Hold {
   readonly held: boolean;
-  /** How far up the glass was when it was last told to move. */
   readonly from: number;
   readonly elapsed: number;
-  /** Where the lens's centre is held, in drawing units. */
   readonly lens: Point;
-  /** Fixed drawing position after lifting; dragging translates it without repainting. */
   readonly anchor: Point;
 }
 
@@ -53,7 +48,6 @@ function liftOf({ held, from, elapsed }: Hold): number {
 
 const percent = (fraction: number) => `${(fraction * 100).toFixed(4)}%`;
 
-/** A polygon in drawing units as a CSS clip path over a box the size of the whole drawing. */
 const clipOver = (points: readonly Point[]) =>
   `polygon(${points
     .map(
@@ -114,15 +108,9 @@ function GlassFront({ drawing }: { drawing: MagnifierDrawing }) {
 interface MagnifierProps {
   readonly motion: Motion;
   readonly controls: RefObject<HTMLDivElement | null>;
-  /** Where the glass draws while it lies on the desk: outside the scene its lens shows. */
   readonly rest: RefObject<SVGGElement | null>;
 }
 
-/**
- * A magnifying glass lying on the desk. Press and drag it to lift it by the handle and look at the
- * desk through it; let go and it stays held where it is. A tap on the held glass, a tap anywhere
- * else, Escape, or scrolling away puts it back down. Its lens shows the live drawing, magnified.
- */
 export function Magnifier({ motion, controls, rest }: MagnifierProps) {
   const [hold, setHold] = useState<Hold>({
     held: false,
@@ -202,7 +190,6 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
     const outside = (event: Event) =>
       heldRef.current &&
       !(event.target instanceof Node && buttonRef.current?.contains(event.target));
-    // While the glass is up, a press elsewhere only puts it down: nothing under it reacts.
     const onPress = (event: PointerEvent) => {
       if (outside(event)) event.stopPropagation();
     };
@@ -261,7 +248,6 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
   });
   const moved = fraction({ x: VIEW_BOX.x + shift.x, y: VIEW_BOX.y + shift.y });
   const anchored = fraction(drawing.lens.center);
-  /** Within the moved glass, where the magnified drawing sits so `center` stays under the lens. */
   const view = {
     x: (1 - zoom) * anchored.x - zoom * moved.x,
     y: (1 - zoom) * anchored.y - zoom * moved.y,
@@ -394,7 +380,6 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
               onPointerCancel={letGo}
               onLostPointerCapture={letGo}
               onClick={(event) => {
-                // Pointers pick up and put down on press and release; this is the keyboard's way.
                 if (event.detail !== 0) return;
                 if (held) moveTo(false);
                 else moveTo(true, HOVER_LENS);

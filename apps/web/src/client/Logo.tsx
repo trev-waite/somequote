@@ -1,7 +1,3 @@
-/**
- * An opening quotation mark (“) drawn as two extruded blocks in isometric projection.
- * Faces are painted back to front; opacity on `currentColor` shades the sides in either color scheme.
- */
 const FACES: readonly (readonly [opacity: number, path: string])[] = [
   [0.22, 'M10.4 12L6.9 12L0 16L3.5 16Z'],
   [0.5, 'M24.2 42L24.2 22L17.3 26L17.3 46Z'],

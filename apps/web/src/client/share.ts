@@ -1,7 +1,7 @@
 import type { QuoteDto } from '../shared/api-contract';
 import { attributionOf } from './Publication';
 
-export interface ShareContent {
+interface ShareContent {
   readonly url: string;
   readonly text: string;
 }
@@ -10,7 +10,6 @@ const FALLBACK_TEXT = 'Today’s quote on SomeQuote';
 /** A post holds 280 characters, and X counts any link as 23 of them plus a space. */
 const POST_TEXT_LIMIT = 280 - 24;
 
-/** Shares the site with today's quote in the message when it fits in a post. */
 export function shareContent(origin: string, quote: QuoteDto | undefined): ShareContent {
   const url = `${origin}/`;
   if (!quote) return { url, text: FALLBACK_TEXT };
@@ -29,7 +28,6 @@ export function emailUrl({ url, text }: ShareContent): string {
   return `mailto:?subject=${subject}&body=${body}`;
 }
 
-/** The system share sheet (messages, mail, other apps), where the browser has one. */
 export function canShareNatively(): boolean {
   return typeof navigator.share === 'function';
 }

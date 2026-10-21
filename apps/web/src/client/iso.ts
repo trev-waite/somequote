@@ -23,7 +23,6 @@ export interface SolidPaths {
   readonly crease: string;
   readonly bevel: string;
   readonly top: string;
-  /** Side faces bucketed from darkest (0, turned from the light) to lightest (3). */
   readonly shades: readonly string[];
 }
 
@@ -37,7 +36,6 @@ const COS_E = Math.cos(ELEVATION);
 const SHADES = 4;
 const TOWARD_VIEWER: Vec3 = [COS_A * COS_E, SIN_A * COS_E, SIN_E];
 
-/** World directions that project to the screen's right, its down, and straight out at the reader. */
 export const SCREEN = {
   right: [SIN_A, -COS_A, 0] satisfies Vec3,
   down: [COS_A * SIN_E, SIN_A * SIN_E, -COS_E] satisfies Vec3,
@@ -50,7 +48,6 @@ export function project([x, y, z]: Vec3): Point {
   return { x: x * SIN_A - y * COS_A, y: (x * COS_A + y * SIN_A) * SIN_E - z * COS_E };
 }
 
-/** Larger is nearer the viewer. */
 export function depthOf([x, y, z]: Vec3): number {
   return (x * COS_A + y * SIN_A) * COS_E + z * SIN_E;
 }
@@ -83,7 +80,6 @@ export function pathOf(points: readonly Point[], closed = false): string {
 export const line = (points: readonly Vec3[], closed = false) =>
   pathOf(points.map(project), closed);
 
-/** The smallest convex outline around `points` (Andrew's monotone chain). */
 export function hull(points: readonly Point[]): Point[] {
   const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
   const turn = (o: Point, a: Point, b: Point) =>
@@ -105,7 +101,6 @@ export function hull(points: readonly Point[]): Point[] {
   return [...half(sorted), ...half([...sorted].reverse())];
 }
 
-/** A screen region for a transparent control: its box, and the outline within it as a clip path. */
 export function areaOf(points: readonly Point[]) {
   const outline = hull(points);
   const xs = outline.map(({ x }) => x);
@@ -120,7 +115,6 @@ export function areaOf(points: readonly Point[]) {
   };
 }
 
-/** Consecutive runs of indices whose flag equals `want`, around a closed ring; each run includes its end vertex. */
 function runsOf(flags: readonly boolean[], want: boolean): number[][] {
   const count = flags.length;
   const start = flags.findIndex((flag, index) => flag !== flags[(index + count - 1) % count]);
@@ -141,10 +135,6 @@ function runsOf(flags: readonly boolean[], want: boolean): number[][] {
   return runs;
 }
 
-/**
- * Extrudes a convex `ring` (a planar polygon) by `along`. The end facing the viewer is the "top";
- * `bevel` draws a chamfer line inset that far from the top's near edges.
- */
 export function prism(ring: readonly Vec3[], along: Vec3, bevel = 0): SolidPaths {
   const count = ring.length;
   const center = scale(
@@ -268,7 +258,6 @@ export function corners({ x, y, w, d }: Plan, inset: number): [number, number][]
   ];
 }
 
-/** The half of a horizontal circle that faces the viewer: a seam round a post. */
 export function sideArc(cx: number, cy: number, radius: number, z: number, steps = 20): string {
   const facing = Math.atan2(TOWARD_VIEWER[1], TOWARD_VIEWER[0]);
   return line(
@@ -279,7 +268,6 @@ export function sideArc(cx: number, cy: number, radius: number, z: number, steps
   );
 }
 
-/** Vertical grip lines on the visible side of a cylinder. */
 export function knurl(
   cx: number,
   cy: number,
@@ -304,7 +292,6 @@ export function knurl(
   return lines.join('');
 }
 
-/** A rounded rectangle standing upright in the plane `y`, spanning x0..x0+w and z0..z0+h. */
 export function uprightRect(
   x0: number,
   y: number,
@@ -316,7 +303,6 @@ export function uprightRect(
   return roundedPlan({ x: x0, y: z0, w, d: h, r }, 0).map(([x, z]): Vec3 => [x, y, z]);
 }
 
-/** A round bar from `base` along `along`, such as a pen or a drawer knob. */
 export function rod(base: Vec3, along: Vec3, radius: number, steps = 20): SolidPaths {
   const axis = normalize(along);
   const helper: Vec3 = Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
@@ -329,10 +315,6 @@ export function rod(base: Vec3, along: Vec3, radius: number, steps = 20): SolidP
   return prism(ring, along);
 }
 
-/**
- * The SVG matrix that draws flat 2D content into the plane through `origin` spanned by `u` and `v`
- * (both in world units per drawing unit). Projection is linear, so any such plane is an affine map.
- */
 export function planeMatrix(origin: Vec3, u: Vec3, v: Vec3): string {
   const o = project(origin);
   const pu = project(u);

@@ -1,16 +1,9 @@
-/**
- * Checks the production build before it is tested or deployed: only expected files are published
- * as static assets, and the shipped JavaScript and CSS stay within their compressed size budgets.
- *
- * Usage: bun scripts/check-build.ts (after `bun run build`)
- */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 const CLIENT = fileURLToPath(new URL('../dist/client/', import.meta.url));
 
-/** Every file Workers Static Assets may serve publicly. Anything else fails the build. */
 const PUBLIC_FILES = [
   /^index\.html$/,
   /^_headers$/,

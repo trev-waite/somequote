@@ -79,7 +79,6 @@ describe('App', () => {
   it('keeps checking past midnight until the server has published the next quote', async () => {
     vi.useFakeTimers();
     try {
-      // 23:59:50 in New York on 2026-10-18, by this device's clock.
       vi.setSystemTime(new Date('2026-10-19T03:59:50Z'));
       const next = PublicationDto.parse({
         date: '2026-10-19',
