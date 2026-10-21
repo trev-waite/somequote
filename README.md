@@ -1,14 +1,14 @@
 # SomeQuote
 
-One quote a day, the same for everyone. A quote reveals itself word by word; scroll to a writer's desk with a lamp that switches the color scheme and a clock counting down to the next quote.
+One quote a day, the same for everyone. A quote reveals itself word by word, and a writer's desk below it has a lamp and a clock counting down to the next quote.
 
-- About 80% enduring quotes from writers, philosophers, scientists, and leaders, and about 20% verses from the World English Bible.
-- A new quote at midnight in New York (`America/New_York`), published once and kept in a permanent history.
-- One Cloudflare Worker: React app as static assets, a small JSON API, and a daily cron, backed by D1.
+- About 80% enduring quotes from writers, philosophers, scientists, and leaders; about 20% verses from the World English Bible.
+- A new quote at midnight in New York, published once and kept in a permanent history.
+- One Cloudflare Worker serving the React app as static assets, a JSON API, and a daily cron, backed by D1.
 
 ## Quick start
 
-Requirements: [Bun](https://bun.sh) 1.4+, and `unzip` for the optional source verification. No Cloudflare account is needed for local development.
+Requires [Bun](https://bun.sh) 1.4+. Source verification also needs `unzip`. No Cloudflare account is needed for local development.
 
 ```bash
 bun install
@@ -17,202 +17,47 @@ bun run db:seed:local       # load the curated collection (idempotent)
 bun run dev                 # http://localhost:5173
 ```
 
-| Command | What it does |
-| --- | --- |
-| `bun run dev` | Vite dev server running the Worker in `workerd`, with local D1 |
-| `bun run build` | Production build (`apps/web/dist`), generated script hashes/integrity, public-asset allowlist, and size budgets |
-| `bun run test:e2e` | Builds, then runs the Playwright smoke tests against `vite preview` of the build |
-| `bun run benchmark:browser` | Builds, then measures startup, scrolling, and magnifier interactions in Chromium and WebKit |
-| `bun run preview` | Serves the production build locally, including `_headers` |
-| `bun run lint` / `bun run format` | Biome check / fix |
-| `bun run typecheck` | TypeScript for every package; fails if generated Worker types are stale |
-| `bun run test` | Vitest: domain, content, Worker (real local D1), and client suites |
-| `bun run db:migrate:local` | Applies `apps/web/migrations` to the local database |
-| `bun run db:seed:local` | Upserts the collection into the local database |
-| `bun run content:verify-sources` | Downloads every cited source text and checks each quote against it |
-
 Trigger the daily job locally while `bun run dev` is running:
 
 ```bash
 curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+4+*+*+*"
 ```
 
-## Architecture
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `bun run dev` | Vite dev server running the Worker in `workerd`, with local D1 |
+| `bun run build` | Production build in `apps/web/dist`, with CSP hashes and size budgets |
+| `bun run preview` | Serves the production build locally |
+| `bun run test` | Vitest across every package, including the Worker against real local D1 |
+| `bun run test:e2e` | Builds, then runs the Playwright tests against the preview |
+| `bun run benchmark:browser` | Builds, then measures startup and interaction timing in Chromium and WebKit |
+| `bun run lint` / `bun run format` | Biome check / fix |
+| `bun run typecheck` | TypeScript for every package |
+| `bun run content:verify-sources` | Downloads every cited source and checks each quote against it |
+| `bun run db:migrate:local` / `db:seed:local` | Apply migrations / upsert the collection into the local database |
+| `bun run hooks:install` | Enables the pre-push secret scan (once per clone) |
+
+Before opening a PR, run `bun run lint && bun run typecheck && bun run test && bun run test:e2e`. Install the Playwright browsers once with `cd apps/web && bunx playwright install chromium webkit`.
+
+## Layout
 
 ```
-packages/domain    quote model · publication clock · selection policy · ensurePublication · QuoteRepository contract
-packages/content   curated quotes + provenance · editorial rules · source verification script
+packages/domain    quote model · publication clock · selection · ensurePublication · QuoteRepository contract
+packages/content   curated quotes and provenance · editorial rules · source verification
 apps/web           the deployable Worker
-  src/worker       fetch (Hono API) + scheduled (cron) · D1QuoteRepository · seed SQL
-  src/shared       HTTP contract (Zod mini), used by Worker and client
+  src/worker       fetch (Hono API) and scheduled (cron) · D1QuoteRepository · seed SQL
+  src/shared       HTTP contract (Zod mini), used by the Worker and the client
   src/client       React app · reveal timing · styles
-  migrations       D1 schema (constraints and triggers enforce the invariants)
+  migrations       D1 schema; constraints and triggers enforce the invariants
+tools/secret-scan  dependency-free credential scanner for CI and the pre-push hook
 ```
 
-The domain package is plain TypeScript with no dependencies; everything platform-specific sits at the edges. See [AGENTS.md](AGENTS.md) for module ownership, invariants, and conventions.
+## Documentation
 
-### Loading and browser performance
+The code, its types, and its module boundaries are the primary documentation. The `doc/` folder covers only what they cannot:
 
-The HTML preloads today's JSON and the 27 kB quote font in parallel with the app. The quote renders before the desk module is requested; the desk loads after the quote's first paint, or when its scene enters the viewport. Initial JavaScript has an 85 kB gzip budget, alongside the 110 kB total JavaScript and 6 kB CSS budgets. The word-by-word reveal is intentional animation, measured separately from data availability.
-
-The build inlines the small theme bootstrap to avoid a blocking request, generates its CSP hash, and gives the app entry a SHA-384 integrity attribute. Same-origin script permission remains for imported modules; this is not a hash-only strict CSP. HTML remains static and cacheable, with no nonce generation or Worker invocation for page delivery.
-
-Install the benchmark engines once with `cd apps/web && bunx playwright install chromium webkit`, then run `bun run benchmark:browser` from the repository root. Measurements and raw samples are saved in `apps/web/benchmark-results/`; CI uploads them as `browser-benchmarks` artifacts. Run on an otherwise idle machine for useful comparisons.
-
-The benchmark uses one worker and no retries. It records three cold/warm HTTP-cache startup pairs in Chromium, three cold loads in WebKit, and three samples per idle/dragging phase. A Chromium profile adds 100 ms network latency, 1.6 Mbps download throughput, and 4× CPU throttling. The local preview transfers uncompressed assets, so those network measurements are conservative and do not represent Cloudflare production latency. WebKit needs an HTTP-only test shim that removes `upgrade-insecure-requests`; routing disables its cache/preload reuse, so warm-cache measurements and the single-request assertion run only in Chromium. All other production CSP directives remain active.
-
-Elapsed times, frame intervals, and Chromium CPU metrics are diagnostic: CI does not fail on FPS or millisecond thresholds. Failures instead catch repeatable regressions: duplicate quote requests, a quote request delayed until after the entry bundle, excessive DOM construction before the quote, SVG geometry changes or repeated matrix reads during settled dragging, and missing compositor settings. The normal browser suite checks the scroll curve and endpoints. This guards known costly behavior without treating a busy runner or a different refresh rate as an app regression.
-
-**Request flow.** `GET /` is served from static assets without invoking the Worker. The page requests `GET /api/quote/today`; its browser reuses a fresh HTTP response when available. Requests reaching the Worker pass an IP rate limit, then look in Cloudflare's shared Cache API. On a cache miss, the Worker computes today's Eastern date and calls `ensurePublication`, which returns the stored publication or selects and records one. The cron does the same at midnight, so the first visitor of the day normally reads an existing row. Shared cache hits skip D1 entirely.
-
-### API
-
-| Endpoint | Response |
-| --- | --- |
-| `GET /api/quote/today` | `{ date, quote }`. `quote` is `{ category: 'general', id, text, author, source }` or `{ category: 'bible', id, text, reference, translation }` |
-| `GET /api/quotes/history?limit=10&before=YYYY-MM-DD` | `{ items: [{ date, quote }], nextBefore }`. Newest first, up to today; `limit` is 1–30 (default 10); pass `nextBefore` as `before` for the next page |
-
-Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_found` (404), `rate_limited` (429, with `Retry-After: 60`), `no_quote_available` (503), or `internal_error` (500, details are only logged). Successful responses are cached until the next Eastern midnight, at most one hour; errors are `no-store`. There are no write endpoints and no CORS grant. This is a public API; CORS does not prevent scripts or other servers from calling it.
-
-### Free-tier operation and abuse protection
-
-- **Browser cache.** The frontend uses the browser's HTTP cache; there is no separate local-storage copy. `Cache-Control`, `Date`, and `Expires` bound freshness to one hour or the next New York midnight, whichever comes first.
-- **Shared cache.** The Worker uses Cloudflare's Cache API, local to each Cloudflare data center. Keys include the Eastern publication date and normalized endpoint parameters. Extra query parameters cannot force database reads; equivalent history queries share a key. Cache hits reduce the browser TTL by the response's age, so repeated hits cannot extend its expiry. Cache failures fall back to D1; errors are never cached.
-- **IP limit.** `API_RATE_LIMITER` in `wrangler.jsonc` targets 10 API requests per 60 seconds per IP, shared across all API paths and checked before cache or database access. Only Cloudflare's `CF-Connecting-IP` is used. IPv6 addresses share one bucket per /64, since one host can rotate through its whole /64; missing addresses share an `unknown` bucket. Cloudflare's counters are approximate and local to a data center, not a global quota. Shared office or mobile-network IPs also share the allowance. Namespace `1001` is reserved for this app; change it if another Worker in your account already uses it.
-- **Request budget.** Cloudflare currently includes [100,000 Worker requests per day](https://developers.cloudflare.com/workers/platform/limits/) on the Workers Free plan, shared across the account and reset at midnight UTC. Static-asset requests do not invoke this Worker. Cache hits and requests rejected inside the Worker still consume its request allowance. D1 Free includes [5 million rows read and 100,000 rows written per day](https://developers.cloudflare.com/d1/platform/pricing/). Free-plan quota exhaustion causes failures rather than automatic paid overages; keep the account on Free if a hard zero-cost ceiling is required. The edge rule (5 requests per 10 seconds) lets one address invoke the Worker at most about 43,000 times a day, so a few addresses together can still exhaust these limits; Workers Paid removes that risk.
-- **Edge rate limit.** `scripts/configure-zone.ts` adds a zone rate limiting rule that blocks API bursts before they invoke the Worker (see Deploying). Monitor Worker requests, D1 row usage, and 429s in Cloudflare; thresholds may need adjustment for legitimate traffic.
-
-### Daily selection
-
-`selectQuote` in `packages/domain/src/selection.ts`, from history alone:
-
-1. **Category.** Publications are grouped in rotations of five. Each rotation holds exactly four general quotes and one Bible verse, and the verse's position is random, so the mix of what is actually published stays at 80/20 with no fixed pattern. If a category has no enabled quotes, its slot goes to the other category; the next rotation starts fresh instead of catching up with a run of verses.
-2. **Quote.** Within the category: the fewest times published, then the longest since last published, then random. Nothing repeats until every enabled quote in its category has appeared.
-
-**Atomicity.** D1 has no interactive transactions, so publishing is a single batch: `INSERT … SELECT … WHERE enabled = 1 ON CONFLICT (publish_date) DO NOTHING`, then a read of the date's row. The primary key on `publish_date` guarantees one winner when requests race; losers return the winner's publication. Retries and repeated cron runs converge on the same row. Triggers make history permanent.
-
-**Time.** All date logic is in `publication-clock.ts`. Cron triggers run in UTC, and midnight in New York is 04:00 UTC in daylight time and 05:00 UTC in standard time, so both fire daily. The one that isn't midnight finds today already published (or ensures the previous day, which is still current in New York).
-
-## Content
-
-`packages/content` holds 400 quotes: 320 general quotes and 80 verses (about 80/20; the published mix is held at 80/20 by the rotation).
-
-- **Sources.** Every general quote cites a primary text (Project Gutenberg plain text or Wikisource) with a locator such as a book, chapter, or letter. `bun run content:verify-sources` downloads each text and checks the wording. It last verified all 400 quotes against 69 source texts. Quotes differ from their sources only typographically (curly quotes, dashes, line breaks, a capitalized first letter or a final period on an excerpt).
-- **Avoided misattributions.** Popular versions that do not match their sources were replaced with the authentic text. For example, Thoreau's "advances confidently in the direction of his dreams", Keller's "nothing can be done without hope" (no "and confidence"), Tolstoy's "patience and time", and Goethe's "a little song" (not "music").
-- **Licensing.** General quotes come from works in the public domain in the United States (published before 1931, including the translations used: Long, Legge, Müller, Gummere, Jowett, Chase, Hapgood, Maude, Carlyle, and the Kelloggs). Some translators and authors died less than 70 years ago, so a few texts may still be under copyright in other jurisdictions; they appear here as short, attributed quotations. Verses are exact excerpts of the [World English Bible](https://worldenglish.bible) (public domain; "World English Bible" is a trademark of eBible.org, and excerpts are never altered so the name stays accurate).
-- **Seeding.** `bun run db:seed:local` upserts every quote by id and disables quotes removed from the collection. History is never touched, and a quote's category cannot change.
-
-To add a quote, edit `general.ts` or `bible.ts`, then run `bun run test`, `bun run content:verify-sources`, and `bun run db:seed:local`.
-
-## Design
-
-- **Typography.** The quote is set in **Instrument Serif**, the typeface Trevor's Knight site uses for its name in the primary theme. The WOFF2 is a byte-identical copy, self-hosted with its SIL Open Font License (`apps/web/public/fonts`). Secondary text uses the system UI font. Spacing and line heights sit on an 8px grid; the quote size steps with its length and the viewport.
-- **Presentation.** The featured text is enclosed in typographic quotation marks, followed by its attribution. The publication date is kept in the API and history, and is not displayed on the page.
-- **Reveal.** Words rise 8px and unblur from 6px over 650ms, each 80ms after the last (tightened for long quotes so the final word starts within 2.4s). The attribution uses the same blur, duration, and easing, starting one stagger after the final word starts. Completed text releases its animation filters. Timing lives in `src/client/reveal.ts`. The page waits for both the quote and the font before revealing. Screen readers get the full text once; reduced motion uses a single opacity fade.
-- **Desk.** Scrolling snaps between the quote and an isometric desk with an open book, a lamp, and a flip clock. The lamp switches modes when clicked or when its cord is pulled; taps give the cord a smooth tug, and a mouse can brush it aside. The clock counts down to the next Eastern midnight using the domain publication clock, including 23- and 25-hour days, and refreshes the quote when it expires. Reduced motion disables scene and clock animations.
-- **Color.** `#FFFFFF` and `#000000`, reversed in dark mode. The page initially follows the system preference and remembers a manual choice. A script applies it before first paint; the document background and browser theme color stay in sync for Safari's toolbars.
-
-## Deploying to Cloudflare
-
-Production targets the `somequote` Worker on `somequote.com`. The `somequote` D1 database ID is configured in `apps/web/wrangler.jsonc`, and the three Cloudflare repository secrets are stored in GitHub Actions (see Credentials and renewal below). Database and credential setup is complete; API access, production bindings, and zone settings still need validation by the deployment and zone workflows. CI needs no Cloudflare credentials on a developer's machine.
-
-1. Merge to `main`. The deploy job applies the migrations, loads the collection, deploys, and smoke-tests `https://somequote.com`. On the first deployment, Cloudflare attaches `somequote.com` as the Worker's [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) and creates its DNS record and certificate. The domain must be active in the same account, with no conflicting apex `A`/`AAAA`/`CNAME` record. `workers_dev` and `preview_urls` are `false` in `wrangler.jsonc`, so the Worker has no `*.workers.dev` hostnames that would bypass the zone's HTTPS redirect and WAF rule. There is no earlier version to roll back to on the first deploy, so a failed smoke test only fails the run.
-
-   To deploy from your own machine instead: `cd apps/web && bunx wrangler login`, then `bun run db:migrate:remote`, `bun run db:seed:remote`, and `bun run deploy`.
-2. Apply the zone configuration after the first deploy, and review it when zone policy changes. In Actions → Zone settings → Run workflow on `main`, leave *Apply* unticked to print the plan, then run it again with *Apply* ticked. It uses the `CLOUDFLARE_ZONE_TOKEN` secret. For local runs, provide that token through the `CLOUDFLARE_API_TOKEN` environment variable and run `bun run --cwd apps/web zone:plan` or `zone:apply`.
-   `scripts/configure-zone.ts` is idempotent and touches only the settings it lists and the rules it owns (matched by `ref`). It reads and checks everything before writing anything: if a check fails (SSL off, another rate limiting rule already exists, or a DNS-only `www` record), it exits with the fix and changes nothing. It sets:
-   - **HTTPS only.** Always Use HTTPS (every `http://` request is redirected at the edge, before assets or the Worker), Automatic HTTPS Rewrites, minimum TLS 1.2, TLS 1.3 without 0-RTT (early data can be replayed), and HTTP/3. The app sends `Strict-Transport-Security: max-age=63072000; includeSubDomains` on every response (`public/_headers`, `src/worker/app.ts`), so the zone's HSTS header is kept off to avoid a second, conflicting header.
-   - **Rate limiting rule.** Path starts with `/api/`, 5 requests per 10 seconds per IP in each Cloudflare data center (not a global count), Block for 10 seconds (the Free plan's one rule, 10-second period, and 10-second timeout). It blocks before the Worker runs, so it is what protects the daily Worker request allowance; the in-Worker minute limit remains a second layer. A page load makes one API request and the browser serves repeats from its cache, so normal visits stay well under both limits. If you created a rate limiting rule by hand earlier, the script asks you to delete it first: the Free plan allows only one.
-   - **www.** A proxied placeholder `AAAA www → 100::` and a 301 redirect rule from `www.somequote.com` to `https://somequote.com`, keeping path and query. The redirect runs at the edge and never invokes the Worker.
-   - **HTML untouched.** Email Obfuscation and Rocket Loader off: both rewrite pages and inject scripts that the Content-Security-Policy blocks. Browser Integrity Check stays on. Don't enable Cloudflare Web Analytics' automatic injection for the same reason.
-   - **DNSSEC.** Enabled; the script prints the DS record to add at your registrar (automatic with Cloudflare Registrar).
-3. Verify on the real domain: `http://somequote.com` and `https://www.somequote.com/?a=1` redirect to `https://somequote.com/` (query kept), the site and `https://somequote.com/api/quote/today` load, a short burst of API requests is blocked, and both cron triggers appear in the Worker's Settings → Triggers. Logs and traces are enabled in `wrangler.jsonc`.
-
-HSTS preload is deliberately not enabled. Submitting `somequote.com` to [hstspreload.org](https://hstspreload.org) requires adding `; preload` to both HSTS headers, is slow to undo, and makes every subdomain HTTPS-only in browsers permanently. Add it once the domain is settled.
-
-After that, every merge to `main` deploys the same way (below): it applies new migrations, syncs the collection, and deploys.
-
-## Continuous deployment
-
-Three workflows in `.github/workflows`:
-
-**`ci.yml`, on every pull request and every merge to `main`.** Docs-only changes (`*.md`) are skipped, and a new push to a PR cancels its previous run.
-
-| Job | Checks |
-| --- | --- |
-| Lint, typecheck, test | Applied migrations unchanged (only new `000N_*.sql` files); [actionlint](https://github.com/rhysd/actionlint) and shellcheck on the workflows; `biome ci`; typecheck; every Vitest suite. PRs also run `bun audit` (high and critical), and `content:verify-sources` when `packages/content` changes (source texts are cached by `sources.ts`). |
-| Build and browser smoke tests | Production build, generated CSP hashes/integrity, public-asset allowlist, and initial/total JS/CSS budgets. Chromium tests at desktop and mobile sizes cover quote loading, headers, script integrity, injected-script rejection, deferred-desk failures, scroll continuity, the lamp, and caching. Serial Chromium/WebKit benchmarks guard expensive work and upload diagnostic measurements. |
-| Deploy (merges to `main` only) | Skips a commit that is no longer the head of `main`, so re-running an old workflow can't roll production back. Downloads the build the jobs above tested, applies D1 migrations, syncs the collection (`db:seed:remote`), deploys with the commit as the version message and tag, then smoke-tests `https://somequote.com` (`scripts/smoke.ts`: page, bundle, and API contract with the production headers). If the smoke test fails, it rolls the Worker back once to the version that was live before, then reports whether production recovered. If the Worker already exists and that version can't be read, it doesn't deploy. Only the first deploy, when Cloudflare's list of Workers has no `somequote`, goes ahead without a version to roll back to. Migrations stay applied, which is safe because they are append-only. Deploys run one at a time. |
-
-**The rollback can't loop.**
-- It runs at most once per run, and nothing after it deploys.
-- No workflow can start another run: the token is read-only (`contents: read`), and no step pushes, dispatches, or calls `gh workflow run`. GitHub also never starts workflows from events caused by the job's own token, except dispatches.
-- `wrangler rollback` is a Cloudflare API call that triggers nothing in GitHub.
-- A later deploy needs a new merge or a manual run.
-
-`deployment-config.test.ts` fails if a workflow gains write permissions, a push or dispatch, or a second deploy or rollback. Don't also connect the repository to Cloudflare Workers Builds, which would deploy every push separately, without these checks.
-
-The two check jobs run in parallel. Each installs from the frozen lockfile in seconds, so there is no dependency or Turbo cache to maintain. Merges rerun the checks on the merged result rather than trusting the PR run, since `main` may have moved.
-
-**`zone.yml`, not on every merge.** Zone settings change rarely and need a different, more powerful token, so this workflow runs `scripts/configure-zone.ts`:
-- **Applies it** when the script (or the workflow) changes on `main`.
-- **Runs it on demand** from Actions → Zone settings → Run workflow, which prints the plan, or applies it if you tick *Apply*.
-- **Checks weekly (Mondays, read-only)** that nobody has changed the zone in the dashboard (`--check` fails on drift), and that `http://` and `www` still redirect.
-
-After applying, it verifies the HTTPS and `www` redirects at the edge.
-
-**`secrets.yml`, on every push to any branch or tag.** It has no path filters and no concurrency group, so no run is ever cancelled (GitHub cancels a queued run when another joins its group, even with `cancel-in-progress: false`). A skipped push would never be scanned, because the next run scans only the commits after it. Pull requests are covered by the pushes to their branches.
-
-**Secret scanning.** `tools/secret-scan` has no dependencies and is covered by its own tests.
-- **What it checks:** every added line of every new commit, so a secret deleted in a later commit is still caught. It also checks commit messages and the message of a pushed annotated tag. It reports the commit that first added each secret.
-- **What it matches:**
-  - Cloudflare's prefixed `cfut_`/`cfat_`/`cfk_`/`cfast_` credentials anywhere.
-  - Legacy Global API Keys after `X-Auth-Key`, and Origin CA keys.
-  - Unprefixed legacy tokens assigned to a secret-looking name, including quoted passphrases, JSON, and YAML `|` blocks.
-  - `Bearer` tokens and `user:password@` URLs.
-  - GitHub, Anthropic, OpenAI, xAI, Google, AWS, and npm keys; PEM, OpenSSH, PGP, and PuTTY private keys; JWTs.
-  - Committed `.env`, `.envrc`, `.dev.vars`, and key files. `.example`, `.sample`, and `.template` copies are allowed.
-- **What it ignores:** `${{ secrets.X }}`, `$VAR`, `process.env.X`, placeholders, checksums, and lockfile hashes.
-- **Robustness:** it pins git's diff format, so a developer's `diff.noprefix`, path quoting, or binary-file settings can't hide a file. Files git calls binary are read as text, and paths with quotes, tabs, or non-ASCII characters are reported correctly. Every pattern is bounded, so a 200 KB minified line takes milliseconds.
-- **Running it yourself:** run `bun run hooks:install` once per clone. A pre-push hook then runs the same scan before anything leaves your machine, which CI cannot do. `bun run scan:secrets` scans the whole history.
-- **Deliberate test values:** mark the line `secret-scan: allow`, or assemble the value at runtime as the tests do.
-
-If a real credential is found, rotate it first; it has left your machine if it was pushed.
-
-**Credentials and renewal.** These three repository secrets are configured in Settings → Secrets and variables → Actions. The two account API tokens are managed in Cloudflare → Manage Account → Account API Tokens and expire on **October 21, 2027**. Renew them before that date and replace the corresponding GitHub secret values. Keep token values out of the repository.
-
-| Secret | Purpose and policy |
-| --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | Account owning the Worker, D1 database, and domain. Find it with Cloudflare dashboard search → Copy account ID. |
-| `CLOUDFLARE_DEPLOY_TOKEN` | `somequote-github-deploy`: Entire Account → Workers Admin, D1 Write, Account Settings Read; Specified Domains → `somequote.com` → Workers Routes Write. Workers Admin permits initial Worker creation. |
-| `CLOUDFLARE_ZONE_TOKEN` | `somequote-github-zone`: Specified Domains → `somequote.com` → Zone Read, Zone Settings Write, Zone WAF Write, Dynamic URL Redirects Write (Single Redirects), DNS Write. |
-
-Client IP filtering is unset because standard GitHub-hosted runners use changing addresses. If either workflow reports an authentication error, check the token's permissions, resource scope, expiration, and GitHub secret value.
-
-The deploy job checks for its credentials and the configured `database_id` before changing production. The zone workflow uses its separate token for manual plans, applies, and weekly drift checks.
-
-**Limits of a private repository on GitHub Free.** Branch protection, required checks, and environment secrets need GitHub Pro (or a public repository):
-- Nothing stops a merge while checks are red; wait for the checks before merging. The deploy job won't run unless they pass.
-- Repository secrets are readable by workflows on any branch of this repository, but not from forks. Keep the two Cloudflare tokens narrowly scoped, and give write access only to people you'd trust with them.
-
-**Where the secrets live.** GitHub repository secrets are the right default here. They are encrypted, masked in logs, and withheld from forks.
-- **GitHub Pro ($4/month) is the one upgrade worth making.**
-  - Move the Cloudflare secrets into a `production` environment restricted to `main`, so a workflow on any other branch can't read them. Add `environment: production` to the deploy and zone jobs.
-  - Protect `main`, requiring *Lint, typecheck, test*, *Build and browser smoke tests*, and *Secret scan*.
-  - Required reviewers on private repositories still need GitHub Enterprise.
-- **A public repository** gets all of that free, plus required reviewers and GitHub's own secret scanning with push protection.
-- **Short-lived credentials (GitHub OIDC)** would beat any stored token, but Cloudflare's API doesn't document support for GitHub OIDC. Revisit if that changes.
-- **External secret managers** (1Password, Doppler, Vault) still need a bootstrap secret stored in GitHub, and add another party with access. Using AWS Secrets Manager through GitHub OIDC with a `main`-only trust policy would restrict access by branch without Pro, but it means running an AWS account for two tokens.
-
-## Verification
-
-Run `bun run lint && bun run typecheck && bun run test && bun run test:e2e` before opening a PR (`test:e2e` builds, then runs the Playwright smoke tests; install the browser once with `cd apps/web && bunx playwright install chromium --only-shell`). CI runs the same checks. The tests cover real local D1 contention, publication history, selection distribution, DST, shared API caching and expiry, IP throttling, API failures, reveal timing/accessibility, cord gestures, clock animation cleanup, and countdown rollover. `bun run content:verify-sources` checks all 192 quotes against 60 primary texts; add `--refresh` to download the sources again instead of using the local cache.
-
-The local production preview was checked in the browser at desktop and mobile sizes, including font loading, overflow, word/attribution sequencing, and console errors. D1 and GitHub credentials are configured; production API access, bindings, deployment, and zone configuration remain to be verified through the workflows and live-domain checks described above.
-
-## Replacing parts
-
-- **Storage.** Implement `QuoteRepository` from `@somequote/domain` and return it from `repositoryFor` in `apps/web/src/worker/index.ts`. The one hard requirement is an atomic "insert unless the date exists".
-- **Selection.** `selectQuote` is a pure function over a `SelectionSnapshot`; change the mix with `ROTATION` or replace the function.
-- **API.** `createApp` in `apps/web/src/worker/app.ts` is a Hono app built from injected dependencies (repository, clock, random), and the contract in `src/shared/api-contract.ts` is what the client depends on.
-- **Content.** Any collection that satisfies `findContentProblems` can be seeded.
+- [doc/operations.md](doc/operations.md): deploying, zone setup, credentials and renewal, account limits.
+- [doc/content.md](doc/content.md): sourcing and licensing policy, adding a quote.
+- [AGENTS.md](AGENTS.md): working conventions for agents and contributors.

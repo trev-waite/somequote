@@ -194,7 +194,7 @@ jobs:
         working-directory: .
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Set the CLOUDFLARE_DEPLOY_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (README: Continuous deployment)."
+            echo "::error::Set the CLOUDFLARE_DEPLOY_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (doc/operations.md, Credentials)."
             exit 1
           fi
           head="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
@@ -233,7 +233,7 @@ jobs:
         if: steps.fresh.outputs.current == 'true'
         run: |
           if ! jq -e '.d1_databases[0].database_id | strings | length > 0' dist/worker/wrangler.json >/dev/null; then
-            echo "::error::Add the database_id from 'wrangler d1 create somequote' to apps/web/wrangler.jsonc (README: Deploying)."
+            echo "::error::Add the database_id from 'wrangler d1 create somequote' to apps/web/wrangler.jsonc (doc/operations.md)."
             exit 1
           fi
 
