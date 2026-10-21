@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { drawingAt, LIFTED_BOX, OPTION_BOXES, type Phase, poseAt } from './envelope-pose';
+import {
+  AIRPLANE_BOX,
+  drawingAt,
+  ENVELOPE,
+  LETTER_EXTENSION,
+  LIFTED_BOX,
+  OPTION_BOXES,
+  type Phase,
+  poseAt,
+} from './envelope-pose';
 
 const END = Number.POSITIVE_INFINITY;
 
@@ -63,6 +72,16 @@ describe('poseAt', () => {
 });
 
 describe('drawingAt', () => {
+  it('clips the letter at the opening, including when it is tucked inside', () => {
+    expect(drawingAt({ lift: 0, letter: 0, flap: 0 }).letterHeight).toBe(0);
+    expect(drawingAt(poseAt('open', 0).pose).letterHeight).toBe(2);
+    expect(drawingAt(poseAt('shown', 0).pose).letterHeight).toBe(29);
+    const extended = {
+      ...poseAt('shown', 0).pose,
+      letter: 1 + LETTER_EXTENSION / ENVELOPE.letter.travel,
+    };
+    expect(drawingAt(extended).letterHeight).toBeCloseTo(40);
+  });
   it('shows the inside of the open flap and the outside once it folds over', () => {
     expect(drawingAt(poseAt('open', 0).pose)).toMatchObject({
       flapOver: false,
@@ -84,6 +103,15 @@ describe('drawingAt', () => {
 });
 
 describe('option boxes', () => {
+  it('keeps the airplane below the options and behind the opening until pulled out', () => {
+    const last = OPTION_BOXES.at(-1);
+    expect(AIRPLANE_BOX.y).toBeGreaterThan((last?.y ?? 0) + (last?.height ?? 0));
+    const opening = ENVELOPE.lifted.y - (ENVELOPE.height * ENVELOPE.lifted.scale) / 2;
+    expect(AIRPLANE_BOX.y).toBeGreaterThan(opening);
+    expect(
+      AIRPLANE_BOX.y + AIRPLANE_BOX.height - LETTER_EXTENSION * ENVELOPE.lifted.scale,
+    ).toBeLessThan(opening);
+  });
   it('stacks the rows top to bottom inside the lifted envelope', () => {
     const inside = (box: (typeof OPTION_BOXES)[number]) =>
       box.x >= LIFTED_BOX.x &&

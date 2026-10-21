@@ -10,7 +10,7 @@ export const ENVELOPE = {
   width: 40,
   height: 27,
   flap: 15,
-  letter: { inset: 2, height: 32, travel: 31 },
+  letter: { inset: 2, height: 42, travel: 31 },
   /** The lifted envelope faces the reader at this size, centred here in viewBox units. */
   lifted: { scale: 3, x: 0, y: 26 },
   /** How far it rises (world units) on its way off the desk. */
@@ -20,6 +20,11 @@ export const ENVELOPE = {
 export const LETTER_WIDTH = ENVELOPE.width - 2 * ENVELOPE.letter.inset;
 /** Each share option is a row on the letter, in letter units from its top edge. */
 export const LETTER_ROWS = { top: 9.4, height: 6.4, count: 3 } as const;
+export const LETTER_EXTENSION = 11;
+export const LETTER_AIRPLANE = {
+  top: LETTER_ROWS.top + LETTER_ROWS.height * LETTER_ROWS.count + 1,
+  height: 9.6,
+} as const;
 
 /** How far each part has moved: 0 is lying on the desk, letter in, flap open. */
 export interface Pose {
@@ -147,6 +152,8 @@ export interface EnvelopeDrawing {
   /** SVG transforms that draw each part in its own units: the body and letter as above. */
   readonly body: string;
   readonly letter: string;
+  /** Only the part above the opening is visible; the rest stays inside the envelope. */
+  readonly letterHeight: number;
   /** The flap is drawn from its hinge, its v axis running from the hinge to its point. */
   readonly flap: string;
   /** Once it leaves the desk the flap is nearer the reader than the letter and the back panel. */
@@ -171,6 +178,7 @@ export function drawingAt(
   return {
     body: planeMatrix(origin, u, v),
     letter: planeMatrix(letterOrigin, u, v),
+    letterHeight: Math.max(0, Math.min(ENVELOPE.letter.height, letter * travel - inset)),
     flap: planeMatrix(origin, u, flapV),
     flapOver: flap > 0,
     flapSide: vec.dot(vec.cross(u, flapV), SCREEN.out) < 0 ? 'inside' : 'outside',
@@ -218,6 +226,15 @@ export const LIFTED_BOX = screenBox([
 export const LETTER_PULL_BOX = screenBox([
   at(lifted, ENVELOPE.letter.inset, letterTop),
   at(lifted, ENVELOPE.letter.inset + LETTER_WIDTH, letterTop + LETTER_ROWS.top),
+]);
+
+export const AIRPLANE_BOX = screenBox([
+  at(lifted, ENVELOPE.letter.inset, letterTop + LETTER_AIRPLANE.top),
+  at(
+    lifted,
+    ENVELOPE.letter.inset + LETTER_WIDTH,
+    letterTop + LETTER_AIRPLANE.top + LETTER_AIRPLANE.height,
+  ),
 ]);
 
 /** Each share option's row on the lifted letter. */

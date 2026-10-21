@@ -1,6 +1,6 @@
-import { ENVELOPE_SPOT } from './desk-geometry';
+import { ENVELOPE_SPOT, LAMP_LIGHT } from './desk-geometry';
 import { ENVELOPE, type EnvelopeFrame, frameAt, type Pose, poseAt } from './envelope-pose';
-import { depthOf, line, SCREEN, type Vec3, vec } from './iso';
+import { depthOf, LIGHT, line, type Point, project, round, SCREEN, type Vec3, vec } from './iso';
 
 export type FlightStage = 'folding' | 'flying' | 'away' | 'landing';
 
@@ -52,14 +52,22 @@ function blendFrame(a: EnvelopeFrame, b: EnvelopeFrame, t: number): EnvelopeFram
 }
 
 const LAUNCH: Vec3 = [-65, 30, 48];
+/**
+ * The aircraft leaves nose first, away from the reader, so the paper only tips back to lie along
+ * its heading; a launch toward the reader would have to spin it half a turn mid-fold.
+ */
 const ROUTE: readonly Vec3[] = [
   LAUNCH,
-  [-20, 75, 38],
-  [100, 30, 50],
-  [70, -65, 100],
-  [-40, -65, 95],
   [-105, -20, 48],
+  [-40, -65, 95],
+  [70, -65, 100],
+  [100, 30, 50],
+  [-20, 75, 38],
 ];
+/** The throw starts from rest: the aircraft gathers speed over this share of its route. */
+const THROW = 0.12;
+const launched = (t: number) =>
+  (t < THROW ? (t * t) / (2 * THROW) : t - THROW / 2) / (1 - THROW / 2);
 
 /** A Catmull–Rom route keeps the aircraft's heading continuous through the turns. */
 function routeAt(progress: number, exitX: number): Vec3 {
@@ -89,15 +97,23 @@ function routeAt(progress: number, exitX: number): Vec3 {
   );
 }
 
+/** Radians of bank per unit of curvature, before `atan` softens it. */
+const BANKING = 30;
+
 function flyingFrame(progress: number, exitX: number): EnvelopeFrame {
+  const behind = routeAt(progress - 0.002, exitX);
   const center = routeAt(progress, exitX);
-  const forward = vec.normalize(
-    vec.sub(routeAt(progress + 0.002, exitX), routeAt(progress - 0.002, exitX)),
-  );
+  const ahead = routeAt(progress + 0.002, exitX);
+  const travel = vec.sub(ahead, behind);
+  const forward = vec.normalize(travel);
   const v = vec.scale(forward, -1);
   const right = vec.normalize(vec.cross([0, 0, 1], forward));
   const up = vec.cross(right, v);
-  const bank = Math.sin(progress * Math.PI * 2) * 0.5;
+  const curvature =
+    (4 * vec.dot(vec.add(vec.sub(ahead, center), vec.sub(behind, center)), right)) /
+    vec.dot(travel, travel);
+  // It leans into each turn, lowering the wing on the inside.
+  const bank = -Math.atan(curvature * BANKING);
   const u = vec.add(vec.scale(right, Math.cos(bank)), vec.scale(up, Math.sin(bank)));
   return makeFrame(center, u, v, 1.15);
 }
@@ -108,9 +124,16 @@ export interface FlightDrawing {
   /** 0 is the envelope rectangle; 1 is the folded aircraft. */
   readonly fold: number;
   readonly plane: boolean;
+  readonly lightOffset?: Point;
+  readonly lightOpacity?: number;
 }
 
-export function flightDrawingAt(stage: FlightStage, elapsed: number, exitX: number): FlightDrawing {
+export function flightDrawingAt(
+  stage: FlightStage,
+  elapsed: number,
+  exitX: number,
+  letter = 1,
+): FlightDrawing {
   const t = clamp(elapsed / FLIGHT_DURATION[stage]);
   const open = poseAt('open', 0).pose;
   switch (stage) {
@@ -120,7 +143,7 @@ export function flightDrawingAt(stage: FlightStage, elapsed: number, exitX: numb
         frame: blendFrame(frameAt(1), flyingFrame(0, exitX), smooth(clamp((elapsed - 250) / 1250))),
         pose: {
           lift: 1,
-          letter: 1 - smooth(clamp(elapsed / 380)),
+          letter: letter * (1 - smooth(clamp(elapsed / 380))),
           flap: smooth(clamp((elapsed - 260) / 340)),
         },
         fold,
@@ -130,7 +153,7 @@ export function flightDrawingAt(stage: FlightStage, elapsed: number, exitX: numb
     case 'flying':
     case 'away':
       return {
-        frame: flyingFrame(stage === 'away' ? 1 : t, exitX),
+        frame: flyingFrame(stage === 'away' ? 1 : launched(t), exitX),
         pose: open,
         fold: 1,
         plane: true,
@@ -146,62 +169,81 @@ export function flightDrawingAt(stage: FlightStage, elapsed: number, exitX: numb
         Math.sin(t * Math.PI * 4) * remaining * 12,
         remaining * remaining * 230,
       ]);
-      return { frame: makeFrame(center, u, v, 1), pose: open, fold: 0, plane: false };
+      const frame = makeFrame(center, u, v, 1);
+      const highestPoint =
+        frame.origin[2] +
+        Math.max(0, frame.u[2] * ENVELOPE.width) +
+        Math.max(-frame.v[2] * ENVELOPE.flap, frame.v[2] * ENVELOPE.height);
+      return {
+        frame,
+        pose: open,
+        fold: 0,
+        plane: false,
+        lightOffset: project(vec.sub(center, ENVELOPE_SPOT.center)),
+        lightOpacity: smooth(clamp((LAMP_LIGHT.height - highestPoint) / 14)),
+      };
     }
   }
 }
 
 const { width: W, height: H } = ENVELOPE;
-const NOSE: Vec3 = [0, -H / 2, 0];
-const TAIL: Vec3 = [0, H / 2, 0];
-const LEFT_TOP: Vec3 = [-W / 2, -H / 2, 0];
-const LEFT_BOTTOM: Vec3 = [-W / 2, H / 2, 0];
-const RIGHT_TOP: Vec3 = [W / 2, -H / 2, 0];
-const RIGHT_BOTTOM: Vec3 = [W / 2, H / 2, 0];
-const PAPER_FACES: readonly (readonly Vec3[])[] = [
-  [NOSE, LEFT_TOP, LEFT_BOTTOM],
-  [NOSE, LEFT_BOTTOM, TAIL],
-  [NOSE, TAIL, RIGHT_BOTTOM],
-  [NOSE, RIGHT_BOTTOM, RIGHT_TOP],
-];
-const PLANE_FACES: readonly (readonly Vec3[])[] = [
-  [
-    [0, -26, 0],
-    [-23, 16, 2],
-    [-5, 9, -1],
-  ],
-  [
-    [0, -26, 0],
-    [-5, 9, -1],
-    [0, 15, -5],
-  ],
-  [
-    [0, -26, 0],
-    [0, 15, -5],
-    [5, 9, -1],
-  ],
-  [
-    [0, -26, 0],
-    [5, 9, -1],
-    [23, 16, 2],
-  ],
-];
 
-/** The same four paper panels fold into wings and a keel, then travel in the desk's world space. */
+/**
+ * A corner of the paper and where it ends up on the aircraft, in envelope units about its centre
+ * with z out of its back. Each corner moves during its own `span` of the fold, through `via` if
+ * given, so the sheet creases down the middle before the wings sweep back.
+ */
+interface Corner {
+  readonly paper: Vec3;
+  readonly plane: Vec3;
+  readonly span: readonly [start: number, end: number];
+  readonly via?: Vec3;
+}
+
+const CORNERS: readonly Corner[] = [
+  { paper: [0, -H / 2, 0], plane: [0, -26, 0], span: [0, 0.75] },
+  { paper: [-W / 2, -H / 2, 0], plane: [-23, 16, 2], span: [0.3, 1], via: [-6, -4, 14] },
+  { paper: [-W / 2, H / 2, 0], plane: [-5, 9, -1], span: [0, 0.6], via: [-12, 12, 4] },
+  { paper: [0, H / 2, 0], plane: [0, 15, -5], span: [0, 0.55] },
+  { paper: [W / 2, H / 2, 0], plane: [5, 9, -1], span: [0, 0.6], via: [12, 12, 4] },
+  { paper: [W / 2, -H / 2, 0], plane: [23, 16, 2], span: [0.3, 1], via: [6, -4, 14] },
+];
+/** Two wing panels and the keel's two sides, all meeting at the nose. */
+const PANELS = [
+  [0, 1, 2],
+  [0, 2, 3],
+  [0, 3, 4],
+  [0, 4, 5],
+] as const;
+
+function cornerAt({ paper, plane, span, via }: Corner, fold: number): Vec3 {
+  const t = smooth(clamp((fold - span[0]) / (span[1] - span[0])));
+  if (!via) return mix(paper, plane, t);
+  return mix(mix(paper, via, t), mix(via, plane, t), t);
+}
+
+/**
+ * The paper panels fold into wings and a keel, then travel in the desk's world space. `shade` is 0
+ * on flat paper, so the sheet starts the same colour as the envelope, and grows with the fold for
+ * panels turned from the light.
+ */
 export function airplaneFaces({ frame, fold }: FlightDrawing) {
   const center = centerOf(frame);
-  return PAPER_FACES.map((face, index) => {
-    const folded = PLANE_FACES[index] ?? face;
-    const points = face.map((point, corner) => {
-      const [x, y, z] = mix(point, folded[corner] ?? point, fold);
-      return vec.add(
-        center,
-        vec.add(
-          vec.add(vec.scale(frame.u, x), vec.scale(frame.v, y)),
-          vec.scale(frame.n, z * frame.size),
-        ),
-      );
-    });
+  const corners = CORNERS.map((corner) => {
+    const [x, y, z] = cornerAt(corner, fold);
+    return vec.add(
+      center,
+      vec.add(
+        vec.add(vec.scale(frame.u, x), vec.scale(frame.v, y)),
+        vec.scale(frame.n, z * frame.size),
+      ),
+    );
+  });
+  return PANELS.map((panel, index) => {
+    const points = panel.map((corner) => corners[corner] ?? center);
+    const [a = center, b = center, c = center] = points;
+    const normal = vec.normalize(vec.cross(vec.sub(b, a), vec.sub(c, a)));
+    const facing = vec.dot(normal, SCREEN.out) < 0 ? vec.scale(normal, -1) : normal;
     return {
       index,
       d: line(points, true),
@@ -209,7 +251,8 @@ export function airplaneFaces({ frame, fold }: FlightDrawing) {
         points.map(([x, y]): Vec3 => [x, y, 0.1]),
         true,
       ),
-      depth: depthOf(vec.scale(points.reduce<Vec3>(vec.add, [0, 0, 0]), 1 / points.length)),
+      shade: round(fold * (1 - vec.dot(facing, LIGHT)) * 0.5),
+      depth: round(depthOf(vec.scale(vec.add(vec.add(a, b), c), 1 / 3))),
     };
   }).sort((a, b) => a.depth - b.depth);
 }

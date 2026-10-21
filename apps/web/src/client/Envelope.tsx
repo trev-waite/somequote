@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { QuoteDto } from '../shared/api-contract';
 import { LAMP_LIGHT, overlay, VIEW_BOX } from './desk-geometry';
 import {
@@ -9,8 +9,10 @@ import {
   NEXT_FLIGHT_STAGE,
 } from './envelope-flight';
 import {
+  AIRPLANE_BOX,
   drawingAt,
   ENVELOPE,
+  LETTER_AIRPLANE,
   LETTER_PULL_BOX,
   LETTER_ROWS,
   LETTER_WIDTH,
@@ -34,6 +36,7 @@ const SEAMS = [
   `M0.7 ${H - 0.5}L${SEAM.left[0]} ${SEAM.left[1]}Q${W / 2} ${H * 0.5} ${SEAM.right[0]} ${SEAM.right[1]}L${W - 0.7} ${H - 0.5}`,
 ].join('');
 const FLAP = `M0 0L${W * 0.42} ${F * 0.84}Q${W / 2} ${F} ${W * 0.58} ${F * 0.84}L${W} 0Z`;
+const LETTER_EDGE = `M0 0.5V${ENVELOPE.letter.height - 0.5}q0 0.5 0.5 0.5h${LETTER_WIDTH - 1}q0.5 0 0.5 -0.5V0.5`;
 const WRITING_SIZE = 3.4;
 /** The shadow the lifted envelope casts on the desk behind it, in viewBox units. */
 const SHADOW = { opacity: 0.3, drop: 6 } as const;
@@ -43,11 +46,13 @@ const liftedStyle = overlay(LIFTED_BOX);
 /** The options sit inside the lifted letter's own overlay. */
 const optionStyles = OPTION_BOXES.map((box) => overlay(box, LIFTED_BOX));
 const pullStyle = overlay(LETTER_PULL_BOX, LIFTED_BOX);
+const airplaneStyle = overlay(AIRPLANE_BOX, LIFTED_BOX);
 
 interface Flight {
   readonly stage: FlightStage;
   readonly elapsed: number;
   readonly exitX: number;
+  readonly letter: number;
 }
 
 type CopyState = 'idle' | 'copied' | 'failed';
@@ -80,7 +85,11 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
   const [flight, setFlight] = useState<Flight | null>(null);
   const flightRef = useRef(flight);
   flightRef.current = flight;
-  const pull = useLetterPull(motion, phase === 'shown' && !flight);
+  const pull = useLetterPull(motion, phase === 'shown' && !flight, (offset) => {
+    setCopy('idle');
+    turnTo('returning', offset);
+    triggerRef.current?.focus({ preventScroll: true });
+  });
   const layerRef = useRef<SVGSVGElement>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -90,12 +99,18 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
   const scrollAtLift = useRef(0);
 
   /** Starts `move` from wherever the envelope has got to. */
-  const turnTo = (move: 'lifting' | 'returning') =>
-    setClock(({ phase, elapsed, from }) => ({
-      phase: move,
-      elapsed: 0,
-      from: poseAt(phase, elapsed, from).pose,
-    }));
+  const turnTo = (move: 'lifting' | 'returning', letterOffset = pull.offset) =>
+    setClock(({ phase, elapsed, from }) => {
+      const pose = poseAt(phase, elapsed, from).pose;
+      return {
+        phase: move,
+        elapsed: 0,
+        from: {
+          ...pose,
+          letter: pose.letter + (phase === 'shown' ? letterOffset / ENVELOPE.letter.travel : 0),
+        },
+      };
+    });
   const turnToRef = useRef(turnTo);
   turnToRef.current = turnTo;
 
@@ -216,18 +231,26 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
     };
   }, []);
 
-  const flightDrawing = flight ? flightDrawingAt(flight.stage, flight.elapsed, flight.exitX) : null;
+  const flightDrawing = flight
+    ? flightDrawingAt(flight.stage, flight.elapsed, flight.exitX, flight.letter)
+    : null;
   const planeFaces = flightDrawing?.plane ? airplaneFaces(flightDrawing) : [];
   const pose = flightDrawing?.pose ?? poseAt(phase, elapsed, from).pose;
   const onDesk = !flight && (phase === 'open' || phase === 'opening');
   const drawing = drawingAt(
-    { ...pose, letter: pose.letter + pull.offset / ENVELOPE.letter.travel },
+    {
+      ...pose,
+      letter: pose.letter + (phase === 'shown' ? pull.offset / ENVELOPE.letter.travel : 0),
+    },
     flightDrawing?.frame,
   );
   const content = shareContent(window.location.origin, quote);
   const native = canShareNatively();
   const copyLabel = { idle: 'Copy link', copied: 'Link copied', failed: 'Couldn’t copy' }[copy];
   const labels = [copyLabel, 'Post on X', native ? 'More ways to share' : 'Send by email'];
+  const opening = ENVELOPE.lifted.y - (H * ENVELOPE.lifted.scale) / 2;
+  const optionsVisible =
+    (opening - LIFTED_BOX.y + pull.offset * ENVELOPE.lifted.scale) / LIFTED_BOX.height;
 
   const copyLink = () => {
     const report = (result: CopyState) => {
@@ -255,10 +278,11 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
     const scale = rect?.width ? rect.width / VIEW_BOX.width : 1;
     const exitX = VIEW_BOX.x - (rect?.left ?? 0) / scale - 80;
     setCopy('idle');
+    const letter = 1 + pull.offset / ENVELOPE.letter.travel;
     pull.reset();
     setClock({ phase: 'open', elapsed: 0 });
     scrollAtLift.current = window.scrollY;
-    setFlight({ stage: 'folding', elapsed: 0, exitX });
+    setFlight({ stage: 'folding', elapsed: 0, exitX, letter });
     triggerRef.current?.focus({ preventScroll: true });
   };
 
@@ -280,13 +304,17 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
         focusable="false"
       >
         <defs>
+          <clipPath id="envelope-letter-window">
+            <rect width={LETTER_WIDTH} height={drawing.letterHeight} />
+          </clipPath>
           <clipPath id="envelope-paper">
             <path transform={drawing.body} d={BODY} />
             <path transform={drawing.flap} d={FLAP} />
-            <rect transform={drawing.letter} width={LETTER_WIDTH} height={ENVELOPE.letter.height} />
+            <rect transform={drawing.letter} width={LETTER_WIDTH} height={drawing.letterHeight} />
           </clipPath>
         </defs>
         <g
+          id="envelope-scene"
           className="envelope"
           data-flight={flight?.stage}
           visibility={flight?.stage === 'away' ? 'hidden' : undefined}
@@ -300,11 +328,7 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
               transform={`translate(0 ${SHADOW.drop * pose.lift})`}
             >
               <path transform={drawing.body} d={BODY} />
-              <rect
-                transform={drawing.letter}
-                width={LETTER_WIDTH}
-                height={ENVELOPE.letter.height}
-              />
+              <rect transform={drawing.letter} width={LETTER_WIDTH} height={drawing.letterHeight} />
             </g>
           )}
           {planeFaces.length > 0 && (
@@ -320,26 +344,21 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
           )}
           <g opacity={1 - (flightDrawing?.fold ?? 0)}>
             {!drawing.flapOver && flap}
-            <g transform={drawing.letter}>
+            <g transform={drawing.letter} clipPath="url(#envelope-letter-window)">
               <rect
                 className="envelope-letter"
                 width={LETTER_WIDTH}
                 height={ENVELOPE.letter.height}
                 rx="0.5"
               />
+              <path className="envelope-letter-outline" d={LETTER_EDGE} />
+              <path className="envelope-pull-mark" d={`M${LETTER_WIDTH / 2 - 2} 4.8h4`} />
               <g
                 className="envelope-airplane-icon"
-                opacity={pull.ready ? 1 : 0}
-                transform={`translate(${LETTER_WIDTH / 2 - 3.5} 1.4)`}
+                transform={`translate(${LETTER_WIDTH / 2 - 3.5} ${LETTER_AIRPLANE.top + (LETTER_AIRPLANE.height - 6.8) / 2})`}
               >
                 <path d="M0 3.3L7 0L4.8 6.8L3 4.5L0 3.3ZM3 4.5L7 0M3 4.5L2.8 6.3L4 5.8" />
               </g>
-              {!pull.ready && (
-                <path
-                  className="envelope-pull-mark"
-                  d={`M${LETTER_WIDTH / 2 - 2} 4.4h4M${LETTER_WIDTH / 2 - 1.4} 5.5h2.8`}
-                />
-              )}
               {labels.map((label, row) => {
                 const top = LETTER_ROWS.top + row * LETTER_ROWS.height;
                 return (
@@ -366,22 +385,25 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
             {drawing.flapOver && flap}
           </g>
           {flightDrawing?.plane && (
-            <g className="paper-airplane">
-              {planeFaces.map(({ index, d }) => (
-                <path key={index} data-panel={index} d={d} />
+            <g
+              className="paper-airplane"
+              style={{ '--crease': Math.min(1, flightDrawing.fold * 4) } as CSSProperties}
+            >
+              {planeFaces.map(({ index, d, shade }) => (
+                <path key={index} d={d} style={{ '--shade': shade } as CSSProperties} />
               ))}
             </g>
           )}
-          {!flight && pose.lift < 1 && (
+          {pose.lift < 1 && (!flight || flight.stage === 'landing') && (
             <ellipse
-              className="lamp-light lamp-pool"
-              cx={LAMP_LIGHT.pool.cx}
-              cy={LAMP_LIGHT.pool.cy}
+              className="lamp-light lamp-pool envelope-light"
+              cx={LAMP_LIGHT.pool.cx + (flightDrawing?.lightOffset?.x ?? 0)}
+              cy={LAMP_LIGHT.pool.cy + (flightDrawing?.lightOffset?.y ?? 0)}
               rx={LAMP_LIGHT.pool.rx}
               ry={LAMP_LIGHT.pool.ry}
               fill="url(#lamp-pool)"
               clipPath="url(#envelope-paper)"
-              opacity={1 - pose.lift}
+              opacity={(1 - pose.lift) * (flightDrawing?.lightOpacity ?? 1)}
             />
           )}
         </g>
@@ -418,19 +440,24 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
               transform: `translateY(${(-pull.offset / LETTER_PULL_BOX.height) * 100 * ENVELOPE.lifted.scale}%)`,
             }}
             aria-label={
-              pull.ready ? 'Fly paper airplane' : 'Pull letter up to reveal a paper airplane'
+              pull.expanded
+                ? 'Push letter back into envelope'
+                : 'Pull letter up to reveal a paper airplane'
             }
-            onClick={() => (pull.ready ? fly() : pull.reveal())}
+            aria-expanded={pull.expanded}
+            onClick={pull.toggle}
             onKeyDown={(event) => {
-              if (event.key !== 'ArrowUp') return;
+              if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
               event.preventDefault();
-              pull.reveal();
+              if (event.key === 'ArrowUp') pull.reveal();
+              else pull.tuck();
             }}
           />
           <div
             className="envelope-options"
             style={{
               transform: `translateY(${(-pull.offset / LIFTED_BOX.height) * 100 * ENVELOPE.lifted.scale}%)`,
+              clipPath: `inset(0 0 ${Math.max(0, (1 - optionsVisible) * 100)}% 0)`,
             }}
           >
             <button
@@ -464,6 +491,15 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
               <a className="envelope-option" style={optionStyles[2]} href={emailUrl(content)}>
                 <span className="visually-hidden">{labels[2]}</span>
               </a>
+            )}
+            {pull.expanded && (
+              <button
+                type="button"
+                className="envelope-flight-trigger"
+                style={airplaneStyle}
+                aria-label="Fly paper airplane"
+                onClick={fly}
+              />
             )}
           </div>
           <p className="visually-hidden" role="status">

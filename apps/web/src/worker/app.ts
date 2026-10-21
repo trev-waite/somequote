@@ -2,7 +2,6 @@ import {
   addDays,
   ensurePublication,
   NoEligibleQuoteError,
-  nextPublicationAt,
   type Publication,
   publicationDateAt,
   type QuoteRepository,
@@ -17,19 +16,18 @@ import {
   HistoryQuery,
   type PublicationDto,
 } from '../shared/api-contract';
+import { publicationResponse } from './publication-cache';
 
 export interface AppDependencies {
   readonly repositoryFor: (env: Env) => QuoteRepository;
   readonly now: () => Date;
   readonly random: Random;
+  readonly cacheFor?: () => Cache;
 }
 
 type AppContext = Context<{ Bindings: Env }>;
 
-/** Responses may be cached until the next publication, but never longer than this. */
-const MAX_CACHE_SECONDS = 60 * 60;
-
-export function createApp({ repositoryFor, now, random }: AppDependencies) {
+export function createApp({ repositoryFor, now, random, cacheFor }: AppDependencies) {
   const app = new Hono<{ Bindings: Env }>().basePath('/api');
 
   app.use(
@@ -40,15 +38,38 @@ export function createApp({ repositoryFor, now, random }: AppDependencies) {
     }),
   );
 
+  app.use(async (c, next) => {
+    const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
+    const { success } = await c.env.API_RATE_LIMITER.limit({ key: `somequote:api:${ip}` });
+    if (!success) {
+      c.header('Retry-After', '60');
+      return errorResponse(
+        c,
+        429,
+        'rate_limited',
+        'Too many requests. Please try again in a minute.',
+      );
+    }
+    return next();
+  });
+
   app.get('/quote/today', async (c) => {
     const at = now();
-    const publication = await ensurePublication({
-      repository: repositoryFor(c.env),
-      date: publicationDateAt(at),
-      random,
+    return publicationResponse({
+      url: c.req.url,
+      parameters: new URLSearchParams(),
+      at,
+      now,
+      cache: cacheFor?.(),
+      load: async () => {
+        const publication = await ensurePublication({
+          repository: repositoryFor(c.env),
+          date: publicationDateAt(at),
+          random,
+        });
+        return toPublicationDto(publication);
+      },
     });
-    const body: PublicationDto = toPublicationDto(publication);
-    return c.json(body, 200, cacheUntilNextPublication(at));
   });
 
   app.get('/quotes/history', async (c) => {
@@ -64,20 +85,29 @@ export function createApp({ repositoryFor, now, random }: AppDependencies) {
     const { limit, before } = query.data;
     const at = now();
     const today = publicationDateAt(at);
-    const repository = repositoryFor(c.env);
-    await ensurePublication({ repository, date: today, random });
-
     const tomorrow = addDays(today, 1);
-    const page = await repository.listPublications({
-      before: before !== undefined && before < tomorrow ? before : tomorrow,
-      limit: limit + 1,
+    const effectiveBefore = before !== undefined && before < tomorrow ? before : tomorrow;
+    return publicationResponse({
+      url: c.req.url,
+      parameters: new URLSearchParams({ limit: String(limit), before: effectiveBefore }),
+      at,
+      now,
+      cache: cacheFor?.(),
+      load: async () => {
+        const repository = repositoryFor(c.env);
+        await ensurePublication({ repository, date: today, random });
+        const page = await repository.listPublications({
+          before: effectiveBefore,
+          limit: limit + 1,
+        });
+        const items = page.slice(0, limit);
+        const body: HistoryDto = {
+          items: items.map(toPublicationDto),
+          nextBefore: page.length > limit ? (items.at(-1)?.date ?? null) : null,
+        };
+        return body;
+      },
     });
-    const items = page.slice(0, limit);
-    const body: HistoryDto = {
-      items: items.map(toPublicationDto),
-      nextBefore: page.length > limit ? (items.at(-1)?.date ?? null) : null,
-    };
-    return c.json(body, 200, cacheUntilNextPublication(at));
   });
 
   app.notFound((c) => errorResponse(c, 404, 'not_found', 'There is nothing at this address.'));
@@ -124,11 +154,6 @@ function toPublicationDto({ date, quote }: Publication): PublicationDto {
         },
       };
   }
-}
-
-function cacheUntilNextPublication(at: Date): Record<string, string> {
-  const secondsLeft = Math.floor((nextPublicationAt(at).getTime() - at.getTime()) / 1000);
-  return { 'Cache-Control': `public, max-age=${Math.min(secondsLeft, MAX_CACHE_SECONDS)}` };
 }
 
 function errorResponse(

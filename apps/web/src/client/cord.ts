@@ -5,7 +5,7 @@ import type { Point } from './iso';
  * Pulling it past `switchAt` clicks the switch once per pull, the way a real pull chain does.
  */
 export const CORD = {
-  length: 42,
+  length: 36,
   links: 14,
   gravity: 1800,
   /** Velocity kept per step; ball chain is limp but swings for a few seconds. */

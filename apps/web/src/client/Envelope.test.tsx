@@ -56,6 +56,7 @@ function showDesk(motion: Motion = 'full') {
   const press = (target: Element) =>
     act(() => {
       target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }));
       target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
   const optionElements = () => [
@@ -66,7 +67,16 @@ function showDesk(motion: Motion = 'full') {
     press(trigger);
     wait(SETTLE_MS);
   };
-  return { query, trigger, wait, press, options, optionElements, open };
+  const fly = () => {
+    const handle = query('.envelope-pull');
+    if (!handle) throw new Error('missing letter grip');
+    press(handle);
+    wait(1000);
+    const airplane = query('.envelope-flight-trigger');
+    if (!airplane) throw new Error('missing airplane');
+    press(airplane);
+  };
+  return { query, trigger, wait, press, options, optionElements, open, fly };
 }
 
 describe('Envelope', () => {
@@ -135,7 +145,7 @@ describe('Envelope', () => {
   });
 
   it.each(['mouse', 'touch'])(
-    'reveals the airplane after a %s pull and springs the letter back',
+    'pulls out the lower airplane with %s and lets it be pushed back in',
     (pointerType) => {
       const { query, open, wait, options } = showDesk();
       open();
@@ -143,9 +153,10 @@ describe('Envelope', () => {
       if (!handle) throw new Error('missing letter grip');
       const letter = query('.envelope-letter')?.parentElement;
       const before = letter?.getAttribute('transform');
-      const pointer = (type: string, clientY: number) =>
+      expect(query('.envelope-flight-trigger')).toBeNull();
+      const pointer = (type: string, clientY: number, target: Element = handle) =>
         act(() => {
-          handle.dispatchEvent(
+          target.dispatchEvent(
             new PointerEvent(type, {
               bubbles: true,
               pointerId: 1,
@@ -159,20 +170,78 @@ describe('Envelope', () => {
       pointer('pointermove', 155);
       expect(letter?.getAttribute('transform')).not.toBe(before);
       pointer('pointerup', 155);
-      expect(handle.getAttribute('aria-label')).toBe('Fly paper airplane');
+      expect(handle.getAttribute('aria-expanded')).toBe('true');
       wait(1000);
+      expect(letter?.getAttribute('transform')).not.toBe(before);
+      expect(query('.envelope-flight-trigger')?.getAttribute('aria-label')).toBe(
+        'Fly paper airplane',
+      );
+      const airplane = query('.envelope-flight-trigger');
+      if (!airplane) throw new Error('missing airplane');
+      pointer('pointerdown', 155, airplane);
+      pointer('pointermove', 200, airplane);
+      pointer('pointerup', 200, airplane);
+      wait(1000);
+      expect(handle.getAttribute('aria-expanded')).toBe('false');
+      expect(query('.envelope-flight-trigger')).toBeNull();
       expect(letter?.getAttribute('transform')).toBe(before);
       expect(options()).toEqual(['Copy link', 'Post on X', 'Send by email']);
     },
   );
 
-  it('flies away, stays gone for five seconds, then floats back ready to open', () => {
-    const { query, trigger, press, open, wait } = showDesk();
+  it.each(['mouse', 'touch'])('collapses the envelope after a downward %s drag', (pointerType) => {
+    const { query, trigger, options, open, wait } = showDesk();
+    open();
+    const letter = query('.envelope-letter')?.parentElement;
+    const handle = query('.envelope-pull');
+    if (!handle) throw new Error('missing letter');
+    const pointer = (type: string, clientY: number) =>
+      act(() => {
+        handle.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, pointerId: 1, button: 0, pointerType, clientY }),
+        );
+      });
+    pointer('pointerdown', 200);
+    pointer('pointermove', 245);
+    const beforeRelease = letter?.getAttribute('transform');
+    pointer('pointerup', 245);
+    expect(options()).toEqual([]);
+    expect(letter?.getAttribute('transform')).toBe(beforeRelease);
+    expect(document.activeElement).toBe(trigger);
+    wait(SETTLE_MS);
+    expect(trigger.getAttribute('aria-disabled')).toBe('false');
+    open();
+    expect(options()).toHaveLength(3);
+  });
+
+  it('keeps the envelope open after a small or cancelled downward drag', () => {
+    const { query, options, open, wait } = showDesk();
     open();
     const handle = query('.envelope-pull');
-    if (!handle) throw new Error('missing letter grip');
-    press(handle);
-    press(handle);
+    if (!handle) throw new Error('missing letter');
+    for (const [distance, release] of [
+      [6, 'pointerup'],
+      [45, 'pointercancel'],
+    ] as const) {
+      const pointer = (type: string, clientY: number) =>
+        act(() => {
+          handle.dispatchEvent(
+            new PointerEvent(type, { bubbles: true, pointerId: 1, button: 0, clientY }),
+          );
+        });
+      pointer('pointerdown', 200);
+      pointer('pointermove', 200 + distance);
+      wait(150);
+      pointer(release, 200 + distance);
+      wait(1000);
+      expect(options()).toHaveLength(3);
+    }
+  });
+
+  it('flies away, stays gone for five seconds, then floats back ready to open', () => {
+    const { query, trigger, open, wait, fly } = showDesk();
+    open();
+    fly();
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('folding');
     wait(1550);
     expect(query('.paper-airplane')).not.toBeNull();
@@ -182,6 +251,7 @@ describe('Envelope', () => {
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
     wait(250);
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('landing');
+    expect(query('.envelope-light')).not.toBeNull();
     wait(3500);
     expect(trigger.getAttribute('aria-disabled')).toBe('false');
     expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
@@ -190,12 +260,9 @@ describe('Envelope', () => {
   });
 
   it('restores the envelope immediately when scrolling while the airplane is gone', () => {
-    const { query, trigger, press, open, wait } = showDesk();
+    const { query, trigger, open, wait, fly } = showDesk();
     open();
-    const handle = query('.envelope-pull');
-    if (!handle) throw new Error('missing letter grip');
-    press(handle);
-    press(handle);
+    fly();
     wait(7300);
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
     act(() => {
@@ -216,12 +283,34 @@ describe('Envelope', () => {
     act(() =>
       handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })),
     );
-    expect(handle.getAttribute('aria-label')).toBe('Fly paper airplane');
-    press(handle);
+    expect(handle.getAttribute('aria-label')).toBe('Push letter back into envelope');
+    act(() =>
+      handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })),
+    );
+    expect(query('.envelope-flight-trigger')).toBeNull();
+    act(() =>
+      handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })),
+    );
+    const airplane = query('.envelope-flight-trigger');
+    if (!airplane) throw new Error('missing airplane');
+    press(airplane);
     expect(query('.envelope')?.getAttribute('data-flight')).toBe('away');
     wait(5000);
     expect(trigger.getAttribute('aria-disabled')).toBe('false');
     expect(query('.envelope')?.hasAttribute('data-flight')).toBe(false);
+  });
+
+  it('puts an extended letter away from its current position without a jump', () => {
+    const { query, press, open, wait } = showDesk();
+    open();
+    const handle = query('.envelope-pull');
+    if (!handle) throw new Error('missing letter grip');
+    press(handle);
+    wait(1000);
+    const letter = query('.envelope-letter')?.parentElement;
+    const before = letter?.getAttribute('transform');
+    press(document.body);
+    expect(letter?.getAttribute('transform')).toBe(before);
   });
 
   it('folds shut on a press anywhere else, without switching the lamp', () => {

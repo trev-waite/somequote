@@ -18,6 +18,13 @@
       // `wrangler d1 create somequote` (see README), or let `wrangler deploy` provision one.
     }
   ],
+  "ratelimits": [
+    {
+      "name": "API_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ],
   "triggers": {
     // Midnight in New York is 04:00 UTC during daylight time and 05:00 UTC during standard time.
     // Both triggers run every day; publishing is idempotent, so the one that is not midnight is a no-op.

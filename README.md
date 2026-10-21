@@ -49,7 +49,7 @@ apps/web           the deployable Worker
 
 The domain package is plain TypeScript with no dependencies; everything platform-specific sits at the edges. See [AGENTS.md](AGENTS.md) for module ownership, invariants, and conventions.
 
-**Request flow.** `GET /` is served from static assets without invoking the Worker. The page requests `GET /api/quote/today`; the Worker computes today's Eastern date and calls `ensurePublication`, which returns the stored publication or selects and records one. The cron does the same at midnight, so the first visitor of the day normally reads an existing row.
+**Request flow.** `GET /` is served from static assets without invoking the Worker. The page requests `GET /api/quote/today`; its browser reuses a fresh HTTP response when available. Requests reaching the Worker pass an IP rate limit, then look in Cloudflare's shared Cache API. On a cache miss, the Worker computes today's Eastern date and calls `ensurePublication`, which returns the stored publication or selects and records one. The cron does the same at midnight, so the first visitor of the day normally reads an existing row. Shared cache hits skip D1 entirely.
 
 ### API
 
@@ -58,7 +58,14 @@ The domain package is plain TypeScript with no dependencies; everything platform
 | `GET /api/quote/today` | `{ date, quote }`. `quote` is `{ category: 'general', id, text, author, source }` or `{ category: 'bible', id, text, reference, translation }` |
 | `GET /api/quotes/history?limit=10&before=YYYY-MM-DD` | `{ items: [{ date, quote }], nextBefore }`. Newest first, up to today; `limit` is 1–30 (default 10); pass `nextBefore` as `before` for the next page |
 
-Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_found` (404), `no_quote_available` (503), or `internal_error` (500, details are only logged). Successful responses may be cached until the next Eastern midnight, at most one hour; errors are `no-store`. There are no write endpoints and no CORS.
+Errors are `{ error: { code, message } }` with `invalid_request` (400), `not_found` (404), `rate_limited` (429, with `Retry-After: 60`), `no_quote_available` (503), or `internal_error` (500, details are only logged). Successful responses are cached until the next Eastern midnight, at most one hour; errors are `no-store`. There are no write endpoints and no CORS grant. This is a public API; CORS does not prevent scripts or other servers from calling it.
+
+### Free-tier operation and abuse protection
+
+- **Browser cache.** The frontend uses the browser's HTTP cache; there is no separate local-storage copy. `Cache-Control`, `Date`, and `Expires` bound freshness to one hour or the next New York midnight, whichever comes first.
+- **Shared cache.** The Worker uses Cloudflare's Cache API, local to each Cloudflare data center. Keys include the Eastern publication date and normalized endpoint parameters. Extra query parameters cannot force database reads; equivalent history queries share a key. Cache hits reduce the browser TTL by the response's age, so repeated hits cannot extend its expiry. Cache failures fall back to D1; errors are never cached.
+- **IP limit.** `API_RATE_LIMITER` in `wrangler.jsonc` targets 60 API requests per 60 seconds per IP, shared across all API paths and checked before cache or database access. Only Cloudflare's `CF-Connecting-IP` is used; missing addresses share an `unknown` bucket. Cloudflare's counters are approximate and local to a data center, not a global quota. Shared office or mobile-network IPs also share the allowance. Namespace `1001` is reserved for this app; change it if another Worker in your account already uses it.
+- **Request budget.** Cloudflare currently includes [100,000 Worker requests per day](https://developers.cloudflare.com/workers/platform/limits/) on the Workers Free plan, shared across the account and reset at midnight UTC. Static-asset requests do not invoke this Worker. Cache hits and requests rejected inside the Worker still consume its request allowance. D1 Free includes [5 million rows read and 100,000 rows written per day](https://developers.cloudflare.com/d1/platform/pricing/). Free-plan quota exhaustion causes failures rather than automatic paid overages; keep the account on Free if a hard zero-cost ceiling is required. A distributed attack can still exhaust these limits.
 
 ### Daily selection
 

@@ -44,7 +44,7 @@ export const SCREEN = {
   out: TOWARD_VIEWER,
 } as const;
 
-const LIGHT = normalize([-SIN_A, COS_A, 0.35]);
+export const LIGHT = normalize([-SIN_A, COS_A, 0.35]);
 
 export function project([x, y, z]: Vec3): Point {
   return { x: x * SIN_A - y * COS_A, y: (x * COS_A + y * SIN_A) * SIN_E - z * COS_E };
@@ -103,6 +103,21 @@ export function hull(points: readonly Point[]): Point[] {
     return chain;
   };
   return [...half(sorted), ...half([...sorted].reverse())];
+}
+
+/** A screen region for a transparent control: its box, and the outline within it as a clip path. */
+export function areaOf(points: readonly Point[]) {
+  const outline = hull(points);
+  const xs = outline.map(({ x }) => x);
+  const ys = outline.map(({ y }) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  const width = Math.max(...xs) - x;
+  const height = Math.max(...ys) - y;
+  return {
+    box: { x, y, width, height },
+    clipPath: `polygon(${outline.map((p) => `${(((p.x - x) / width) * 100).toFixed(2)}% ${(((p.y - y) / height) * 100).toFixed(2)}%`).join(',')})`,
+  };
 }
 
 /** Consecutive runs of indices whose flag equals `want`, around a closed ring; each run includes its end vertex. */

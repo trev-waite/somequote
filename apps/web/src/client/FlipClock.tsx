@@ -6,7 +6,7 @@ import type { Motion } from './reveal';
 
 const { card } = CLOCK_FACE;
 const HINGE = card.height / 2;
-const DIGIT_SIZE = 17;
+const DIGIT_SIZE = card.height * 0.74;
 /** Instrument Serif's figures sit this far below the middle of the em box. */
 const DIGIT_BASELINE = HINGE + DIGIT_SIZE * 0.34;
 

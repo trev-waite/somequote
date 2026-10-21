@@ -48,6 +48,7 @@ export const HistoryQuery = z.object({
 export const ERROR_CODES = [
   'invalid_request',
   'not_found',
+  'rate_limited',
   'no_quote_available',
   'internal_error',
 ] as const;
