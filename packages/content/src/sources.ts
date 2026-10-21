@@ -1,8 +1,4 @@
-/**
- * Primary texts the collection is quoted from. Every quote names one of these, and
- * `bun run content:verify-sources` downloads each text and checks the quote against it.
- */
-export type SourceFormat = 'text' | 'html' | 'ebible-vpl-zip';
+export type SourceFormat = 'text' | 'html' | 'ebible-vpl-zip' | 'film-clip';
 
 export interface SourceText {
   readonly title: string;
@@ -19,6 +15,12 @@ const seneca = (letter: number): SourceText => ({
   translator: 'Richard Mott Gummere (1917–1925)',
   url: senecaLetter(letter),
   format: 'html',
+});
+
+const film = (title: string, path: string): SourceText => ({
+  title: `${title}, English scene captions`,
+  url: `https://clip.cafe/${path}/`,
+  format: 'film-clip',
 });
 
 export const SOURCES = {
@@ -211,6 +213,94 @@ export const SOURCES = {
     format: 'text',
   },
   'gutenberg-70950': { title: 'In Memoriam', url: gutenberg(70950), format: 'text' },
+  'film-gladiator-echoes': film(
+    'Gladiator (2000)',
+    'gladiator-2000/three-weeks-from-now-i-will-be-harvesting-crops',
+  ),
+  'film-rocky-keep-moving': film(
+    'Rocky Balboa (2006)',
+    'rocky-balboa-2006/saying-aint-you-wanna-be-of-him-her-anybody',
+  ),
+  'film-batman-what-you-do': film(
+    'Batman Begins (2005)',
+    'batman-begins-2005/deep-down-may-still-be-same-great-kid-used-be-s1',
+  ),
+  'film-dark-knight-dawn': film(
+    'The Dark Knight (2008)',
+    'the-dark-knight-2008/but-the-night-is-darkest-just-before-the-dawn-and-i-promise-you-the-dawn-is-coming',
+  ),
+  'film-shawshank-living': film(
+    'The Shawshank Redemption (1994)',
+    'the-shawshank-redemption-1994/or-get-busy-dying',
+  ),
+  'film-good-will-hunting-fault': film(
+    'Good Will Hunting (1997)',
+    'good-will-hunting-1997/its-not-your-fault-s2',
+  ),
+  'film-dead-poets-words': film(
+    'Dead Poets Society (1989)',
+    'dead-poets-society-1989/no-matter-what-anybody-tells-words-ideas-can-change-the-world',
+  ),
+  'film-truman-my-head': film(
+    'The Truman Show (1998)',
+    'the-truman-show-1998/i-know-better-than-do-you-never-a-camera-in-head',
+  ),
+  'film-forrest-chocolates': film(
+    'Forrest Gump (1994)',
+    'forrest-gump-1994/life-like-a-box-of-chocolates',
+  ),
+  'film-princess-bride-life': film(
+    'The Princess Bride (1987)',
+    'the-princess-bride-1987/you-mock-pain',
+  ),
+  'film-back-to-future-mind': film(
+    'Back to the Future (1985)',
+    'back-the-future-1985/if-put-mind-it-s1',
+  ),
+  'film-matrix-door': film(
+    'The Matrix (1999)',
+    'the-matrix-1999/i-told-you-i-can-only-show-you-the-door-you-have-to-walk-through-it',
+  ),
+  'film-inception-dream-bigger': film(
+    'Inception (2010)',
+    'inception-2010/you-mustnt-be-afraid-dream-a-little-bigger',
+  ),
+  'film-interstellar-love': film(
+    'Interstellar (2014)',
+    'interstellar-2014/love-is-the-one-thing-were-capable-of-perceivingthat-transcends-dimensions-of-time-and-space',
+  ),
+  'film-fellowship-smallest': film(
+    'The Lord of the Rings: The Fellowship of the Ring (2001)',
+    'the-lord-of-the-rings-the-fellowship-of-the-ring-2001/even-the-smallest-person-can-change-the-course-of-the-future',
+  ),
+  'film-two-towers-good': film(
+    'The Lord of the Rings: The Two Towers (2002)',
+    'the-lord-of-the-rings-the-two-towers-2002/that-theres-some-good-in-world-mr-frodo',
+  ),
+  'film-return-of-king-carry': film(
+    'The Lord of the Rings: The Return of the King (2003)',
+    'the-lord-of-the-rings-the-return-of-the-king-2003/i-cant-carry-it-you',
+  ),
+  'film-empire-do': film(
+    'Star Wars: The Empire Strikes Back (1980)',
+    'star-wars-episode-v-the-empire-strikes-back-1980/all-right-ill-give-a-try-try-not',
+  ),
+  'film-new-hope-fool': film(
+    'Star Wars: A New Hope (1977)',
+    'star-wars-episode-iv-a-new-hope-1977/boy-its-lucky-you-these-compartments',
+  ),
+  'film-nemo-swimming': film('Finding Nemo (2003)', 'finding-nemo-2003/what-do-do-s7'),
+  'film-toy-story-infinity': film('Toy Story (1995)', 'toy-story-1995/to-infinity-beyond-s6'),
+  'film-up-adventure': film('Up (2009)', 'up-2009/adventure-out-there'),
+  'film-ratatouille-artist': film('Ratatouille (2007)', 'ratatouille-2007/get-lawyer-s1'),
+  'film-kung-fu-panda-present': film(
+    'Kung Fu Panda (2008)',
+    'kung-fu-panda-2008/yesterday-history',
+  ),
+  'film-lion-king-learn': film(
+    'The Lion King (1994)',
+    'the-lion-king-1994/i-know-what-i-have-to-do-but-going-back-means-ill-have-to-face-my-pastive-been-running-from-it-for',
+  ),
 } as const satisfies Record<string, SourceText>;
 
 export type SourceId = keyof typeof SOURCES;
