@@ -110,12 +110,14 @@
 html {
   background-color: var(--paper);
   scroll-snap-type: y mandatory;
+  overscroll-behavior-y: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
+  overscroll-behavior-y: none;
   background-color: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -297,6 +299,13 @@ body {
   text-decoration: underline;
   text-underline-offset: 4px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.status button:active {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 :focus-visible {
@@ -386,6 +395,7 @@ body {
   border-radius: var(--space-2);
   background: none;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
@@ -892,6 +902,7 @@ body {
   border-radius: var(--space-1);
   background: none;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
@@ -954,8 +965,14 @@ body {
   vector-effect: non-scaling-stroke;
 }
 
-.envelope-option:hover {
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .envelope-option:hover {
+    background: color-mix(in srgb, var(--ink) 4%, transparent);
+  }
+}
+
+.envelope-option:active {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 /*
