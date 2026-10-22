@@ -3,7 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CORD } from './cord';
 import { Desk } from './Desk';
 import { CORD_ANCHOR } from './desk-geometry';
+import { drawingAt } from './envelope-pose';
+import { magnifierDrawingAt } from './magnifier-geometry';
 import { preferReducedMotion, render } from './test-render';
+
+vi.mock('./envelope-pose', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./envelope-pose')>();
+  return { ...actual, drawingAt: vi.fn(actual.drawingAt) };
+});
+
+vi.mock('./magnifier-geometry', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./magnifier-geometry')>();
+  return { ...actual, magnifierDrawingAt: vi.fn(actual.magnifierDrawingAt) };
+});
 
 let cleanup: (() => void) | undefined;
 
@@ -113,5 +125,23 @@ describe('Desk cord', () => {
     expect(pullY()).toBe(restingY);
     act(() => vi.advanceTimersByTime(1000));
     expect(pullY()).toBe(restingY);
+  });
+});
+
+describe('Desk countdown', () => {
+  it('ticks the clock without rebuilding the envelope or magnifier', () => {
+    const desk = (remainingMs: number) => (
+      <Desk remainingMs={remainingMs} motion="full" quote={undefined} />
+    );
+    const view = render(desk(100_000));
+    cleanup = view.unmount;
+    vi.mocked(drawingAt).mockClear();
+    vi.mocked(magnifierDrawingAt).mockClear();
+
+    view.rerender(desk(99_000));
+    view.rerender(desk(98_000));
+
+    expect(drawingAt).not.toHaveBeenCalled();
+    expect(magnifierDrawingAt).not.toHaveBeenCalled();
   });
 });

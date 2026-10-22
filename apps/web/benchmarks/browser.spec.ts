@@ -17,6 +17,16 @@ declare global {
 }
 
 const samples = 3;
+/**
+ * Chromium layouts and style recalculations allowed per frame. The desk is never fully still: the
+ * seconds card flips every second and animates for about half of each one.
+ */
+const FRAME_WORK_BUDGET: Record<string, { layouts: number; styleRecalcs: number }> = {
+  'desk idle': { layouts: 0.75, styleRecalcs: 0.75 },
+  'held idle': { layouts: 0.75, styleRecalcs: 0.75 },
+  dragging: { layouts: 0.75, styleRecalcs: 1.25 },
+  'scroll up and down': { layouts: 1.25, styleRecalcs: 2.5 },
+};
 const percentile = (values: readonly number[], fraction: number) => {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ?? 0;
@@ -205,6 +215,12 @@ test('benchmarks scroll and magnifier work and guards against repeated geometry 
       p50Ms: percentile(times, 0.5),
       p95Ms: percentile(times, 0.95),
       maxMs: Math.max(0, ...times),
+      work: session
+        ? {
+            layouts: (after.LayoutCount ?? 0) - (before.LayoutCount ?? 0),
+            styleRecalcs: (after.RecalcStyleCount ?? 0) - (before.RecalcStyleCount ?? 0),
+          }
+        : null,
       cpuMsPerSecond: session
         ? Object.fromEntries(
             ['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration'].map(
@@ -356,4 +372,14 @@ test('benchmarks scroll and magnifier work and guards against repeated geometry 
     body: JSON.stringify(report, null, 2),
     contentType: 'application/json',
   });
+  for (const { phase, frames, work } of results) {
+    const budget = FRAME_WORK_BUDGET[phase];
+    if (!work || !budget) continue;
+    expect
+      .soft(work.layouts / frames, `${phase}: layouts per frame`)
+      .toBeLessThanOrEqual(budget.layouts);
+    expect
+      .soft(work.styleRecalcs / frames, `${phase}: style recalcs per frame`)
+      .toBeLessThanOrEqual(budget.styleRecalcs);
+  }
 });
