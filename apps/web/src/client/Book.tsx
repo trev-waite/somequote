@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BACK_COVER,
@@ -24,7 +24,7 @@ interface BookProps {
   readonly above: RefObject<SVGGElement | null>;
 }
 
-export function Book({ motion, controls, above }: BookProps) {
+export const Book = memo(function Book({ motion, controls, above }: BookProps) {
   const [state, setState] = useState<BookState>({ position: BOOK_MIDDLE });
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const [layer, setLayer] = useState<SVGGElement | null>(null);
@@ -178,4 +178,4 @@ export function Book({ motion, controls, above }: BookProps) {
         )}
     </>
   );
-}
+});

@@ -1,4 +1,5 @@
 import {
+  memo,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   useEffect,
@@ -111,7 +112,7 @@ interface MagnifierProps {
   readonly rest: RefObject<SVGGElement | null>;
 }
 
-export function Magnifier({ motion, controls, rest }: MagnifierProps) {
+export const Magnifier = memo(function Magnifier({ motion, controls, rest }: MagnifierProps) {
   const [hold, setHold] = useState<Hold>({
     held: false,
     from: 0,
@@ -408,4 +409,4 @@ export function Magnifier({ motion, controls, rest }: MagnifierProps) {
         )}
     </>
   );
-}
+});

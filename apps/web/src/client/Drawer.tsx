@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useMemo, useState } from 'react';
+import { memo, type RefObject, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DeskPart } from './DeskPart';
 import { overlay } from './desk-geometry';
@@ -29,7 +29,7 @@ interface DrawerProps {
   readonly controls: RefObject<HTMLDivElement | null>;
 }
 
-export function Drawer({ motion, controls }: DrawerProps) {
+export const Drawer = memo(function Drawer({ motion, controls }: DrawerProps) {
   const [slide, setSlide] = useState<Slide>({ open: false, from: 0, elapsed: 0 });
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   useEffect(() => setHost(controls.current), [controls]);
@@ -108,4 +108,4 @@ export function Drawer({ motion, controls }: DrawerProps) {
         )}
     </>
   );
-}
+});

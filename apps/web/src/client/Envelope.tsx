@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, memo, useEffect, useRef, useState } from 'react';
 import type { QuoteDto } from '../shared/api-contract';
 import { LAMP_LIGHT, overlay, VIEW_BOX } from './desk-geometry';
 import {
@@ -68,7 +68,7 @@ interface EnvelopeProps {
   readonly quote: QuoteDto | undefined;
 }
 
-export function Envelope({ motion, quote }: EnvelopeProps) {
+export const Envelope = memo(function Envelope({ motion, quote }: EnvelopeProps) {
   const [{ phase, elapsed, from }, setClock] = useState<Clock>({ phase: 'open', elapsed: 0 });
   const [copy, setCopy] = useState<CopyState>('idle');
   const copyTimer = useRef(0);
@@ -501,4 +501,4 @@ export function Envelope({ motion, quote }: EnvelopeProps) {
       </p>
     </>
   );
-}
+});

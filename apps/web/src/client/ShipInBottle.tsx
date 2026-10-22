@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useMemo, useState } from 'react';
+import { memo, type RefObject, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BOTTLE_AREA,
@@ -39,7 +39,7 @@ interface ShipInBottleProps {
   readonly controls: RefObject<HTMLDivElement | null>;
 }
 
-export function ShipInBottle({ motion, controls }: ShipInBottleProps) {
+export const ShipInBottle = memo(function ShipInBottle({ motion, controls }: ShipInBottleProps) {
   const [{ stage, elapsed }, setClock] = useState<{ stage: BottleStage; elapsed: number }>({
     stage: 'standing',
     elapsed: 0,
@@ -141,4 +141,4 @@ export function ShipInBottle({ motion, controls }: ShipInBottleProps) {
         )}
     </>
   );
-}
+});
