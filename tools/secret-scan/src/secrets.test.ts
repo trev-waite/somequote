@@ -70,6 +70,8 @@ describe('findSecrets', () => {
       'a value that merely contains a placeholder word',
       `api_key = "${'prod'}-example-token-1234567890"`,
     ],
+    ['an AWS secret access key', `AWS_SECRET_ACCESS_KEY=${random(40)}`],
+    ['a secret key named by its role', `STRIPE_SECRET_KEY="${'sk_live'}_${random(24)}"`],
   ])('finds %s', (_, line) => {
     expect(rulesIn(line)).toEqual(['secret-assignment']);
   });

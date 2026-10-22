@@ -4,7 +4,7 @@ interface Rule {
   readonly accept?: (value: string) => boolean;
 }
 
-const NAME = String.raw`[\w.-]{0,80}?(?:token|secret|password|passwd|api[_-]?key|private[_-]?key)`;
+const NAME = String.raw`[\w.-]{0,80}?(?:token|secret(?:[_-]?(?:access[_-]?)?key)?|password|passwd|api[_-]?key|private[_-]?key)`;
 
 /**
  * A credential-looking value assigned to a secret-looking name, such as
@@ -20,7 +20,7 @@ const ASSIGNMENT = new RegExp(
 );
 
 const DANGLING_NAME = new RegExp(
-  String.raw`(?<![\w.-])(${NAME})\b["']?\s*[:=]\s*(?:[|>][+-]?\d*|\\)\s*$`,
+  String.raw`(?<![\w.-])(${NAME})\b["']?\s*[:=]\s*([|>][+-]?\d*|\\)?\s*$`,
   'i',
 );
 
@@ -140,16 +140,24 @@ export function findSecrets(text: string): Detection[] {
   return found;
 }
 
-function danglingName(text: string): string | undefined {
-  return text.includes(ALLOW_MARKER) ? undefined : DANGLING_NAME.exec(text)?.[1];
+interface DanglingName {
+  readonly name: string;
+  /** `name:` with no block indicator usually opens a nested map, so only a quoted value counts. */
+  readonly quotedOnly: boolean;
 }
 
-function continuedValue(text: string): string {
-  return text
+function danglingName(text: string): DanglingName | undefined {
+  const match = text.includes(ALLOW_MARKER) ? null : DANGLING_NAME.exec(text);
+  return match?.[1] ? { name: match[1], quotedOnly: match[2] === undefined } : undefined;
+}
+
+function continuedValue(text: string, quotedOnly: boolean): string | undefined {
+  const value = text
     .trim()
     .replace(/[\\,]$/, '')
-    .trim()
-    .replace(/^(["'])(.*)\1$/, '$2');
+    .trim();
+  const unquoted = /^(["'])(.*)\1$/.exec(value)?.[2];
+  return quotedOnly ? unquoted : (unquoted ?? value);
 }
 
 export function isPrivateFile(path: string): boolean {
@@ -187,7 +195,7 @@ export function scanLog(log: string): Finding[] {
   let path: string | undefined;
   let inHunk = false;
   let line = 0;
-  let pending: { readonly name: string; readonly line: number } | undefined;
+  let pending: (DanglingName & { readonly line: number }) | undefined;
 
   const report = (finding: Finding, value: string) => {
     const key = `${finding.kind === 'file' ? finding.path : ''}\0${finding.rule}\0${value}`;
@@ -215,21 +223,21 @@ export function scanLog(log: string): Finding[] {
     } else if (inHunk && path && text.startsWith('+')) {
       const content = text.slice(1).replace(/\r$/, '');
       const detections = findSecrets(content);
-      if (pending?.line === line - 1) {
-        detections.push(
-          ...findSecrets(`${pending.name}=${JSON.stringify(continuedValue(content))}`),
-        );
+      const continued =
+        pending?.line === line - 1 ? continuedValue(content, pending.quotedOnly) : undefined;
+      if (pending && continued !== undefined) {
+        detections.push(...findSecrets(`${pending.name}=${JSON.stringify(continued)}`));
       }
       for (const { rule, value } of detections) {
         report({ kind: 'file', commit, path, line, rule, excerpt: redact(value) }, value);
       }
       const name = danglingName(content);
-      pending = name ? { name, line } : undefined;
+      pending = name ? { ...name, line } : undefined;
       line++;
     } else if (inHunk && text.startsWith(' ')) {
       // Context: a changed value under an unchanged `name: |` is still assigned to that name.
       const name = danglingName(text.slice(1).replace(/\r$/, ''));
-      pending = name ? { name, line } : undefined;
+      pending = name ? { ...name, line } : undefined;
       line++;
     }
   }

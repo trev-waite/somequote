@@ -119,6 +119,16 @@ describe('scanCommits', () => {
     expect(locations()).toEqual([['config.yml', 3, 'secret-assignment']]);
   });
 
+  it('finds a quoted value on the line after a bare name', () => {
+    commit({ 'config.json': `{\n  "password":\n    "${legacy}"\n}\n` }, 'json');
+    expect(locations()).toEqual([['config.json', 3, 'secret-assignment']]);
+  });
+
+  it('ignores a nested map under a bare name', () => {
+    commit({ 'config.yml': 'database_password:\n  name: db1-credentials-v2\n' }, 'yaml');
+    expect(locations()).toEqual([]);
+  });
+
   it('finds a replaced value under an unchanged YAML block indicator', () => {
     commit({ 'config.yml': 'cloudflare:\n  api_token: |\n    placeholder\n' }, 'template');
     const leaked = commit({ 'config.yml': `cloudflare:\n  api_token: |\n    ${legacy}\n` }, 'fill');
