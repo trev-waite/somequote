@@ -37,7 +37,7 @@ curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+4+*+*+*"
 | `bun run typecheck` | TypeScript for every package |
 | `bun run content:verify-sources` | Downloads every cited source and checks each quote against it |
 | `bun run db:migrate:local` / `db:seed:local` | Apply migrations / upsert the collection into the local database |
-| `bun run hooks:install` | Enables the pre-push secret scan (once per clone) |
+| `bun run hooks:install` / `scan:secrets` | Enables the pre-push secret scan (once per clone) / scans the whole history |
 
 Before opening a PR, run `bun run lint && bun run typecheck && bun run test && bun run test:e2e`. Install the Playwright browsers once with `cd apps/web && bunx playwright install chromium webkit`.
 
@@ -54,10 +54,13 @@ apps/web           the deployable Worker
 tools/secret-scan  dependency-free credential scanner for CI and the pre-push hook
 ```
 
+## Content
+
+Every quote comes from a US public-domain text or the World English Bible, and `content:verify-sources` checks it against that source. Verse text is never edited. To add a quote, edit `packages/content/src`, then run `bun run test` and `bun run content:verify-sources`. To retire one, set `enabled: false`, because published history keeps it.
+
 ## Documentation
 
-The code, its types, and its module boundaries are the primary documentation. The `doc/` folder covers only what they cannot:
+The code, its types, and its module boundaries are the primary documentation.
 
-- [doc/operations.md](doc/operations.md): deploying, zone setup, credentials and renewal, account limits.
-- [doc/content.md](doc/content.md): sourcing and licensing policy, adding a quote.
-- [AGENTS.md](AGENTS.md): working conventions for agents and contributors.
+- [doc/operations.md](doc/operations.md): deploying, zone setup, credentials, account limits.
+- [AGENTS.md](AGENTS.md): how agents and contributors work here, linking the standards in [doc/standards/](doc/standards/) for architecture, engineering principles, working approach, and verification.
