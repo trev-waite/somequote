@@ -134,9 +134,9 @@ test('reports quote startup across cold, warm, and constrained loads', async ({
         initialElements: window.benchmark.initialElements,
       };
     });
-    // Routing disables WebKit's cache/preload reuse; Chromium exercises the unmodified HTTP path.
-    if (browserName === 'chromium') expect(result.apiRequests).toBe(1);
-    expect(result.apiBeforeBundleEnd).toBe(true);
+    expect(result.apiRequests).toBe(1);
+    // A cached bundle can load before the parser reaches the script that requests the quote.
+    if (mode !== 'warm') expect(result.apiBeforeBundleEnd).toBe(true);
     expect(result.initialElements).toBeLessThan(200);
     results.push({ mode, ...result });
     await expect(page.locator('.desk')).toBeAttached();

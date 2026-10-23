@@ -64,7 +64,7 @@ test('authorizes the built scripts with matching hashes and integrity', async ({
       integrity: script.getAttribute('integrity'),
     })),
   );
-  expect(scripts).toHaveLength(2);
+  expect(scripts).toHaveLength(3);
   for (const script of scripts) {
     const content = script.src ? await (await request.get(script.src)).body() : script.text;
     const hash = `sha384-${createHash('sha384').update(content).digest('base64')}`;
@@ -85,6 +85,31 @@ test('blocks an injected inline script under the production policy', async ({ pa
   await page.goto('/');
   await expect(page.locator('blockquote')).toBeVisible();
   expect(await page.evaluate(() => Reflect.get(window, 'untrustedScriptRan'))).toBeUndefined();
+});
+
+test('runs the Cloudflare Web Analytics beacon the zone injects', async ({ page }) => {
+  await page.route('https://static.cloudflareinsights.com/**', (route) =>
+    route.fulfill({
+      contentType: 'text/javascript',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: 'window.analyticsBeaconRan = true',
+    }),
+  );
+  await page.route('**/', async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    await route.fulfill({
+      response,
+      body: html.replace(
+        '</body>',
+        '<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v1" crossorigin="anonymous"></script></body>',
+      ),
+    });
+  });
+  await page.goto('/');
+  await expect
+    .poll(() => page.evaluate(() => Reflect.get(window, 'analyticsBeaconRan')))
+    .toBe(true);
 });
 
 test('rejects modified app bytes through Subresource Integrity', async ({ page }) => {
@@ -130,10 +155,13 @@ test('requests today’s quote once, in parallel with the bundle', async ({ page
     if (message.type() === 'warning') problems.push(`console warning: ${message.text()}`);
   });
   const quoteRequests: string[] = [];
-  const themeRequests: string[] = [];
+  const bootstrapRequests: string[] = [];
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname === '/api/quote/today') quoteRequests.push(request.url());
-    if (new URL(request.url()).pathname === '/color-scheme.js') themeRequests.push(request.url());
+    const { pathname } = new URL(request.url());
+    if (pathname === '/api/quote/today') quoteRequests.push(request.url());
+    if (pathname === '/color-scheme.js' || pathname === '/request-today.js') {
+      bootstrapRequests.push(request.url());
+    }
   });
 
   await page.goto('/');
@@ -141,7 +169,7 @@ test('requests today’s quote once, in parallel with the bundle', async ({ page
   await page.waitForTimeout(3500);
 
   expect(quoteRequests).toHaveLength(1);
-  expect(themeRequests).toEqual([]);
+  expect(bootstrapRequests).toEqual([]);
   expect(problems).toEqual([]);
 });
 
