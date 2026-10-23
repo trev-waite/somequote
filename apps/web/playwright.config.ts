@@ -15,6 +15,11 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 15'] },
+      testMatch: 'quote-typography.spec.ts',
+    },
   ],
   webServer: {
     command: `bun run db:migrate:local && bun run db:seed:local && vite preview --host 127.0.0.1 --port ${port} --strictPort`,
