@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { type Advisory, fixableAdvisories, parseAuditReport } from './advisories';
+import { type Advisory, parseAuditReport, type Triage, triage } from './advisories';
 
 function run(command: string, args: readonly string[], cwd: string, okStatuses = [0]): string {
   const result = spawnSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 ** 2 });
@@ -17,12 +17,9 @@ function run(command: string, args: readonly string[], cwd: string, okStatuses =
 const audit = (cwd: string) => parseAuditReport(run('bun', ['audit', '--json'], cwd, [0, 1]));
 
 /** Compares the lockfile's audit with one in which every direct dependency is at its latest. */
-export function auditDependencies(root = process.cwd()): {
-  fixable: Advisory[];
-  unfixable: Advisory[];
-} {
+export function auditDependencies(root = process.cwd()): Triage {
   const current = audit(root);
-  if (current.length === 0) return { fixable: [], unfixable: [] };
+  if (current.length === 0) return triage([], []);
 
   const scratch = mkdtempSync(join(tmpdir(), 'dependency-audit-'));
   try {
@@ -38,8 +35,7 @@ export function auditDependencies(root = process.cwd()): {
       cpSync(join(root, file), join(scratch, file));
     }
     run('bun', ['update', '--latest', '--recursive', '--lockfile-only'], scratch);
-    const fixable = fixableAdvisories(current, audit(scratch));
-    return { fixable, unfixable: current.filter((advisory) => !fixable.includes(advisory)) };
+    return triage(current, audit(scratch));
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -51,9 +47,12 @@ const describe = ({ package: name, severity, title, url }: Advisory) =>
   annotationData(`${name}: ${severity} ${title} ${url}`);
 
 if (import.meta.main) {
-  const { fixable, unfixable } = auditDependencies();
-  for (const advisory of unfixable) {
+  const { fixable, criticalWithoutFix, withoutFix } = auditDependencies();
+  for (const advisory of withoutFix) {
     console.log(`::notice title=No fix without an override::${describe(advisory)}`);
+  }
+  for (const advisory of criticalWithoutFix) {
+    console.log(`::error title=Critical vulnerability without a fix::${describe(advisory)}`);
   }
   for (const advisory of fixable) {
     console.log(`::error title=Fixable vulnerability::${describe(advisory)}`);
@@ -62,9 +61,14 @@ if (import.meta.main) {
     console.log(
       'Run `bun audit fix --latest`. For a package it reports as blocked, upgrade the direct dependency `bun why <package>` names.',
     );
-    process.exit(1);
   }
+  if (criticalWithoutFix.length > 0) {
+    console.log(
+      'No release fixes a critical vulnerability yet. Replace or remove the dependency `bun why <package>` names.',
+    );
+  }
+  if (fixable.length > 0 || criticalWithoutFix.length > 0) process.exit(1);
   console.log(
-    `No vulnerability is fixable by upgrading a direct dependency (${unfixable.length} without a fix).`,
+    `No vulnerability is fixable by upgrading a direct dependency, and none without a fix is critical (${withoutFix.length} without a fix).`,
   );
 }

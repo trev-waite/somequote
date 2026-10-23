@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Advisory, fixableAdvisories, parseAuditReport } from './advisories';
+import { type Advisory, parseAuditReport, triage } from './advisories';
 
 const entry = (id: number, title = `Advisory ${id}`) => ({
   id,
@@ -10,10 +10,10 @@ const entry = (id: number, title = `Advisory ${id}`) => ({
   cwe: ['CWE-1321'],
 });
 
-const advisory = (name: string, id: number): Advisory => ({
+const advisory = (name: string, id: number, severity = 'high'): Advisory => ({
   package: name,
   id,
-  severity: 'high',
+  severity,
   title: `Advisory ${id}`,
   url: `https://github.com/advisories/GHSA-${id}`,
 });
@@ -43,24 +43,42 @@ describe('parseAuditReport', () => {
   });
 });
 
-describe('fixableAdvisories', () => {
-  it('reports advisories that upgrading direct dependencies removes', () => {
-    const current = [advisory('lodash', 1), advisory('follow-redirects', 2)];
+describe('triage', () => {
+  it('reports advisories that upgrading direct dependencies removes as fixable', () => {
+    const current = [advisory('lodash', 1), advisory('follow-redirects', 2, 'critical')];
 
-    expect(fixableAdvisories(current, [])).toEqual(current);
+    expect(triage(current, [])).toEqual({
+      fixable: current,
+      criticalWithoutFix: [],
+      withoutFix: [],
+    });
   });
 
-  it('leaves out advisories that remain after upgrading', () => {
-    expect(fixableAdvisories([advisory('qs', 3)], [advisory('qs', 3)])).toEqual([]);
+  it('separates critical advisories that remain after upgrading from the rest', () => {
+    const current = [advisory('qs', 3, 'moderate'), advisory('form-data', 4, 'critical')];
+
+    expect(triage(current, current)).toEqual({
+      fixable: [],
+      criticalWithoutFix: [advisory('form-data', 4, 'critical')],
+      withoutFix: [advisory('qs', 3, 'moderate')],
+    });
   });
 
   it('matches by package and advisory, so one fixed copy is still reported', () => {
     const current = [advisory('qs', 3), advisory('qs', 4)];
 
-    expect(fixableAdvisories(current, [advisory('qs', 4)])).toEqual([advisory('qs', 3)]);
+    expect(triage(current, [advisory('qs', 4)])).toEqual({
+      fixable: [advisory('qs', 3)],
+      criticalWithoutFix: [],
+      withoutFix: [advisory('qs', 4)],
+    });
   });
 
   it('ignores advisories that only the upgraded dependencies introduce', () => {
-    expect(fixableAdvisories([], [advisory('axios', 5)])).toEqual([]);
+    expect(triage([], [advisory('axios', 5, 'critical')])).toEqual({
+      fixable: [],
+      criticalWithoutFix: [],
+      withoutFix: [],
+    });
   });
 });

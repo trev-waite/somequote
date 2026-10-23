@@ -30,12 +30,20 @@ export function parseAuditReport(output: string): Advisory[] {
   });
 }
 
-export function fixableAdvisories(
-  current: readonly Advisory[],
-  upgraded: readonly Advisory[],
-): Advisory[] {
+export interface Triage {
+  readonly fixable: Advisory[];
+  readonly criticalWithoutFix: Advisory[];
+  readonly withoutFix: Advisory[];
+}
+
+export function triage(current: readonly Advisory[], upgraded: readonly Advisory[]): Triage {
   const remaining = new Set(upgraded.map(key));
-  return current.filter((advisory) => !remaining.has(key(advisory)));
+  const unfixed = current.filter((advisory) => remaining.has(key(advisory)));
+  return {
+    fixable: current.filter((advisory) => !remaining.has(key(advisory))),
+    criticalWithoutFix: unfixed.filter((advisory) => advisory.severity === 'critical'),
+    withoutFix: unfixed.filter((advisory) => advisory.severity !== 'critical'),
+  };
 }
 
 const key = (advisory: Advisory) => `${advisory.package}\0${advisory.id}`;
