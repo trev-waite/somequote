@@ -31,7 +31,6 @@ jobs:
     timeout-minutes: 5
     environment: prod
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ZONE_TOKEN }}
       APPLY: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.apply) }}
     steps:
       # Re-running an old workflow must never apply an older version of the script.
@@ -49,6 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ZONE_TOKEN }}
 
       - name: Checkout
         if: steps.fresh.outputs.current == 'true'
@@ -79,6 +79,7 @@ jobs:
           fi
         env:
           EVENT: ${{ github.event_name }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ZONE_TOKEN }}
 
       - name: Verify HTTPS and www redirects at the edge
         if: steps.fresh.outputs.current == 'true' && (github.event_name == 'schedule' || env.APPLY == 'true')
