@@ -10,6 +10,7 @@ const SUPPORTED_CHARACTERS = /^[A-Za-z0-9 \n.,;:!?’‘“”—–\-()&éèê�
 const STARTS_LIKE_A_SENTENCE = /^[A-Z’“]/;
 const ENDS_LIKE_A_SENTENCE = /[.!?][’”]?$/;
 const REFERENCE_PATTERN = /^(?:[1-3] )?[A-Z][a-z]+(?: of [A-Z][a-z]+)? (\d+):(\d+)(?:–(\d+))?$/;
+const ATTESTED_PATTERN = /^[A-Z][^,]*,.* (?:18|19|20)\d{2}$/;
 const PASSAGE_PATTERN = /^[1-3A-Z]{3} (\d+):(\d+)(?:-(\d+))?$/;
 
 export interface ContentEntries {
@@ -34,6 +35,9 @@ export function findContentProblems({ general, bible }: ContentEntries): string[
         report(entry.id, `${field} must be trimmed text`);
       if (!isAttributionText(value)) report(entry.id, `${field} must be short, visible text`);
       if (/['"]/.test(value)) report(entry.id, `${field} must use typographic quotes`);
+    }
+    if ('attested' in entry.provenance && !ATTESTED_PATTERN.test(entry.provenance.attested)) {
+      report(entry.id, 'attested provenance must say where it was said and end with the year');
     }
   }
   for (const entry of bible) {

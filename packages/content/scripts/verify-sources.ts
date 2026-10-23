@@ -1,5 +1,6 @@
 /**
- * Downloads every cited source text and checks that each quote appears in it.
+ * Downloads every cited source text and checks that each quote appears in it. Attested quotes,
+ * documented public statements with no public-domain text, are listed for manual review instead.
  *
  * General quotes may differ from their source only typographically: curly versus straight quotes,
  * dashes, italics markers, translator brackets, line breaks, the case of the first letter, and the
@@ -94,20 +95,23 @@ function passageText(verses: Map<string, string>, passage: string): string | und
   return parts.join(' ');
 }
 
+const sourced = GENERAL_QUOTES.flatMap((entry) =>
+  'sourceId' in entry.provenance ? [{ entry, sourceId: entry.provenance.sourceId }] : [],
+);
+const attested = GENERAL_QUOTES.length - sourced.length;
 const failures: string[] = [];
 const sourceText = new Map<SourceId, string>();
 const cited = new Set<SourceId>([
-  ...GENERAL_QUOTES.map((entry) => entry.provenance.sourceId),
+  ...sourced.map(({ sourceId }) => sourceId),
   'world-english-bible',
 ]);
 for (const id of cited) {
   sourceText.set(id, typographic(await download(id)));
 }
 
-for (const entry of GENERAL_QUOTES) {
-  const source = sourceText.get(entry.provenance.sourceId) ?? '';
-  if (!appearsIn(source, entry.text))
-    failures.push(`${entry.id}: not found in ${entry.provenance.sourceId}`);
+for (const { entry, sourceId } of sourced) {
+  const source = sourceText.get(sourceId) ?? '';
+  if (!appearsIn(source, entry.text)) failures.push(`${entry.id}: not found in ${sourceId}`);
 }
 
 const verses = versesOf(await download('world-english-bible'));
@@ -119,11 +123,13 @@ for (const entry of BIBLE_VERSES) {
   }
 }
 
-const checked = GENERAL_QUOTES.length + BIBLE_VERSES.length;
+const checked = sourced.length + BIBLE_VERSES.length;
 if (failures.length > 0) {
   console.error(
     `${failures.length} of ${checked} quotes failed verification:\n${failures.join('\n')}`,
   );
   process.exit(1);
 }
-console.log(`Verified ${checked} quotes against ${cited.size} source texts.`);
+console.log(
+  `Verified ${checked} quotes against ${cited.size} source texts. ${attested} attested quotes have no source text to check.`,
+);

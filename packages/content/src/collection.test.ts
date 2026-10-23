@@ -37,7 +37,9 @@ describe('the curated collection', () => {
 
   it('cites a source for every quote and uses every listed source', () => {
     const cited = new Set([
-      ...GENERAL_QUOTES.map((entry) => entry.provenance.sourceId),
+      ...GENERAL_QUOTES.flatMap((entry) =>
+        'sourceId' in entry.provenance ? [entry.provenance.sourceId] : [],
+      ),
       ...(BIBLE_VERSES.length > 0 ? ['world-english-bible'] : []),
     ]);
     expect([...cited].sort()).toEqual(Object.keys(SOURCES).sort());
@@ -63,6 +65,21 @@ describe('editorial rules', () => {
     const problems = problemsFor({ general: [{ ...validGeneral, ...override }] });
     expect(problems.join('\n')).toContain(expected);
   });
+
+  it('accepts attested statements that say where and when they were made', () => {
+    const attested = { ...validGeneral, provenance: { attested: 'Yankee Stadium, July 4, 1939' } };
+    expect(problemsFor({ general: [attested] })).toEqual([]);
+  });
+
+  it.each(['Farewell speech', '1939', 'Yankee Stadium, 1939, New York'])(
+    'rejects the attested provenance %s',
+    (record) => {
+      const problems = problemsFor({
+        general: [{ ...validGeneral, provenance: { attested: record } }],
+      });
+      expect(problems.join('\n')).toContain('end with the year');
+    },
+  );
 
   it('rejects duplicate ids and duplicate texts', () => {
     const problems = problemsFor({ general: [validGeneral, validGeneral] }).join('\n');
