@@ -5,8 +5,8 @@ import secretsWorkflow from '../../../../.github/workflows/secrets.yml?raw';
 import zoneWorkflow from '../../../../.github/workflows/zone.yml?raw';
 import headers from '../../public/_headers?raw';
 import wranglerConfig from '../../wrangler.jsonc?raw';
-import { createApp } from './app';
-import { D1QuoteRepository } from './d1-quote-repository';
+import { createApp } from './api/app';
+import { D1QuoteRepository } from './db/d1-quote-repository';
 
 describe('deployment configuration', () => {
   it('serves only on the custom domain, where the zone forces HTTPS and applies WAF rules', () => {

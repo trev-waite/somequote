@@ -45,12 +45,17 @@ Before opening a PR, run `bun run lint && bun run typecheck && bun run test && b
 ## Layout
 
 ```
-packages/domain         quote model · publication clock · selection · ensurePublication · QuoteRepository contract
+packages/domain         quote model · publication clock · selection · ensurePublication · history · QuoteRepository contract
 packages/content        curated quotes and provenance · editorial rules · source verification
 apps/web                the deployable Worker
-  src/worker            fetch (Hono API) and scheduled (cron) · D1QuoteRepository · seed SQL
+  src/worker            entry: wires D1 into the API (fetch) and the cron (scheduled)
+    api                 Hono routes · rate limiting · response caching · DTO mapping · errors
+    db                  D1QuoteRepository · seed SQL
   src/shared            HTTP contract (Zod mini), used by the Worker and the client
-  src/client            React app · reveal timing · styles
+  src/client            React app shell · styles
+    data                API client · loading and caching today's publication
+    publication         the quote view · reveal timing · sharing · countdown
+    desk                the interactive desk; one folder per object (book, bottle, drawer, envelope, magnifier)
   migrations            D1 schema; constraints and triggers enforce the invariants
 tools/secret-scan       dependency-free credential scanner for CI and the pre-push hook
 tools/dependency-audit  CI check for fixable or critical dependency vulnerabilities

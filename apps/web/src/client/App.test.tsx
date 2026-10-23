@@ -2,10 +2,10 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicationDto } from '../shared/api-contract';
 import { App } from './App';
-import { type fetchTodayPublication, TodayQuoteUnavailableError } from './api';
+import { type fetchTodayPublication, TodayQuoteUnavailableError } from './data/api';
 import { preferReducedMotion, render } from './test-render';
 
-vi.mock('./DeferredDesk', () => ({ DeferredDesk: () => null }));
+vi.mock('./desk/DeferredDesk', () => ({ DeferredDesk: () => null }));
 
 const publication = PublicationDto.parse({
   date: '2026-10-18',

@@ -1,4 +1,4 @@
-import type { PublicationDate } from './publication-clock';
+import { addDays, type PublicationDate } from './publication-clock';
 import type { Quote, QuoteId } from './quote';
 import { type Random, ROTATION_LENGTH, type SelectionSnapshot, selectQuote } from './selection';
 
@@ -69,4 +69,44 @@ export async function ensurePublication({
     if (publication) return publication;
   }
   throw new Error(`Could not publish a quote for ${date} in ${MAX_PUBLISH_ATTEMPTS} attempts.`);
+}
+
+export interface HistoryPage {
+  readonly publications: readonly Publication[];
+  readonly nextBefore: PublicationDate | null;
+}
+
+/** History ends today, so cursors after tomorrow clamp to it. */
+export function historyCursor(
+  today: PublicationDate,
+  before: PublicationDate | undefined,
+): PublicationDate {
+  const tomorrow = addDays(today, 1);
+  return before !== undefined && before < tomorrow ? before : tomorrow;
+}
+
+/** Newest first. Publishes today first, so history includes it before anyone has asked for it. */
+export async function listHistory({
+  repository,
+  today,
+  before,
+  limit,
+  random = Math.random,
+}: {
+  readonly repository: QuoteRepository;
+  readonly today: PublicationDate;
+  readonly before?: PublicationDate;
+  readonly limit: number;
+  readonly random?: Random;
+}): Promise<HistoryPage> {
+  await ensurePublication({ repository, date: today, random });
+  const page = await repository.listPublications({
+    before: historyCursor(today, before),
+    limit: limit + 1,
+  });
+  const publications = page.slice(0, limit);
+  return {
+    publications,
+    nextBefore: page.length > limit ? (publications.at(-1)?.date ?? null) : null,
+  };
 }

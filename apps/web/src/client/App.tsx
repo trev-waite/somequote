@@ -1,9 +1,9 @@
-import type { fetchTodayPublication } from './api';
-import { formatCountdown, useCountdown } from './countdown';
-import { DeferredDesk } from './DeferredDesk';
+import type { fetchTodayPublication } from './data/api';
+import { usePrefersReducedMotion, useTodayPublication } from './data/today';
+import { DeferredDesk } from './desk/DeferredDesk';
 import { Logo } from './Logo';
-import { PublicationView } from './Publication';
-import { usePrefersReducedMotion, useTodayPublication } from './today';
+import { formatCountdown, useCountdown } from './publication/countdown';
+import { PublicationView } from './publication/Publication';
 
 export function App({ load }: { load?: typeof fetchTodayPublication }) {
   const { state, retry, rollOver } = useTodayPublication(load);
