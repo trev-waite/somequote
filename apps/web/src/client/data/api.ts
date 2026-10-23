@@ -1,5 +1,12 @@
 import { ErrorDto, PublicationDto } from '../../shared/api-contract';
 
+declare global {
+  interface Window {
+    /** The page-load request from public/request-today.js, until the first fetch takes it. */
+    todayResponse: Promise<Response | undefined> | undefined;
+  }
+}
+
 export class TodayQuoteUnavailableError extends Error {
   override readonly name = 'TodayQuoteUnavailableError';
 }
@@ -8,11 +15,15 @@ export async function fetchTodayPublication(
   signal?: AbortSignal,
   { fresh = false }: { readonly fresh?: boolean } = {},
 ): Promise<PublicationDto> {
-  const response = await fetch('/api/quote/today', {
-    headers: { Accept: 'application/json' },
-    ...(signal ? { signal } : {}),
-    ...(fresh ? { cache: 'reload' as const } : {}),
-  });
+  const started = window.todayResponse;
+  window.todayResponse = undefined;
+  const response =
+    (await started) ??
+    (await fetch('/api/quote/today', {
+      headers: { Accept: 'application/json' },
+      ...(signal ? { signal } : {}),
+      ...(fresh ? { cache: 'reload' as const } : {}),
+    }));
   const body: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
     const failure = ErrorDto.safeParse(body);

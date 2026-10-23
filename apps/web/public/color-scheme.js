@@ -1,5 +1,5 @@
 // Applies the reader's color scheme before the first paint, so neither the page nor Safari's
-// toolbars flash the wrong color. Keep in sync with src/client/color-scheme.ts and --paper.
+// toolbars flash the wrong color. Keep in sync with src/client/desk/color-scheme.ts and --paper.
 (() => {
   let saved = null;
   try {

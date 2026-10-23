@@ -10,7 +10,7 @@ const PUBLIC_FILES = [
   /^robots\.txt$/,
   /^favicon\.svg$/,
   /^og-image\.png$/,
-  /^color-scheme\.js$/,
+  /^(?:color-scheme|request-today)\.js$/,
   /^assets\/(?:index|Desk)-[\w-]+\.(?:js|css)$/,
   /^fonts\/[\w-]+\.(?:woff2|txt)$/,
 ];

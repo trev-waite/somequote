@@ -125,4 +125,30 @@ describe('fetchTodayPublication', () => {
 
     await expect(fetchTodayPublication()).rejects.toThrow('status 504');
   });
+
+  it('takes the request started during page load once, then fetches', async () => {
+    const publication = {
+      date: '2026-10-18',
+      quote: { category: 'general', id: 'a', text: 'Hi.', author: 'A', source: 'B' },
+    };
+    respondWith(publication);
+    window.todayResponse = Promise.resolve(Response.json(publication));
+
+    await expect(fetchTodayPublication()).resolves.toEqual(publication);
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(fetchTodayPublication()).resolves.toEqual(publication);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('fetches again when the page-load request failed', async () => {
+    const publication = {
+      date: '2026-10-18',
+      quote: { category: 'general', id: 'a', text: 'Hi.', author: 'A', source: 'B' },
+    };
+    respondWith(publication);
+    window.todayResponse = Promise.resolve(undefined);
+
+    await expect(fetchTodayPublication()).resolves.toEqual(publication);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
 });

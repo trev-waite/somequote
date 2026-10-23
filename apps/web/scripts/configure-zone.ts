@@ -1,4 +1,7 @@
-/** Needs a zone token with Zone Read, Zone Settings, Zone WAF, Single Redirect, and DNS edit. */
+/**
+ * Needs a zone token with Zone Read, Zone Settings, Zone WAF, Single Redirect, DNS, and Bot
+ * Management edit.
+ */
 
 const ZONE = 'somequote.com';
 const API = 'https://api.cloudflare.com/client/v4';
@@ -28,6 +31,13 @@ const SETTINGS: Record<string, unknown> = {
     },
   },
 };
+
+/**
+ * Bot Fight Mode can't be skipped for the API, which is meant to be called from scripts
+ * (doc/api.md), and it forces JavaScript Detections on: a per-request inline script that the page's
+ * CSP blocks.
+ */
+const BOT_MANAGEMENT = { fight_mode: false, enable_js: false };
 
 interface Rule {
   readonly ref: string;
@@ -163,6 +173,15 @@ for (const [id, value] of Object.entries(SETTINGS)) {
       run: () => api('PATCH', `${zonePath}/settings/${id}`, { value }),
     });
   }
+}
+
+const bots = await api<Record<string, unknown>>('GET', `${zonePath}/bot_management`);
+if (!includes(bots, BOT_MANAGEMENT)) {
+  const current = { fight_mode: bots.fight_mode, enable_js: bots.enable_js };
+  changes.push({
+    summary: `bot management: ${JSON.stringify(current)} → ${JSON.stringify(BOT_MANAGEMENT)}`,
+    run: () => api('PUT', `${zonePath}/bot_management`, BOT_MANAGEMENT),
+  });
 }
 
 for (const [phase, rule] of Object.entries(RULES)) {

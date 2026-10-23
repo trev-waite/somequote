@@ -32,7 +32,7 @@ Set these as secrets of the `prod` environment in Settings → Environments, whi
 | --- | --- |
 | `CLOUDFLARE_ACCOUNT_ID` | The account that owns the Worker, D1, and the domain. |
 | `CLOUDFLARE_DEPLOY_TOKEN` | Account: Workers Admin, D1 Write, Account Settings Read. Zone `somequote.com`: Workers Routes Write. |
-| `CLOUDFLARE_ZONE_TOKEN` | Zone `somequote.com`: Zone Read, Zone Settings Write, Zone WAF Write, Dynamic URL Redirects Write, DNS Write. |
+| `CLOUDFLARE_ZONE_TOKEN` | Zone `somequote.com`: Zone Read, Zone Settings Write, Zone WAF Write, Dynamic URL Redirects Write, DNS Write, Bot Management Write. |
 
 Both tokens expire on **October 21, 2027**. Renew them in Cloudflare and update the secrets before then.
 
