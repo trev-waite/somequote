@@ -64,5 +64,6 @@ Every quote comes from a US public-domain text or the World English Bible, and `
 
 The code, its types, and its module boundaries are the primary documentation.
 
+- [doc/api.md](doc/api.md): calling the public API, its responses, errors, and limits.
 - [doc/operations.md](doc/operations.md): deploying, zone setup, credentials, account limits.
 - [AGENTS.md](AGENTS.md): how agents and contributors work here, linking the standards in [doc/standards/](doc/standards/) for architecture, engineering principles, working approach, and verification.
