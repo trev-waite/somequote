@@ -386,7 +386,7 @@ jobs:
             echo "Release $TAG already exists for $GITHUB_SHA."
             exit 0
           fi
-          notes="$(printf 'Verified deployment to https://somequote.com through the `prod` environment.\n\nCommit: %s\nActions run: %s/%s/actions/runs/%s\nCloudflare version tag: `%s`' \
+          notes="$(printf 'Verified deployment to https://somequote.com through the prod environment.\n\nCommit: %s\nActions run: %s/%s/actions/runs/%s\nCloudflare version tag: %s' \
             "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$TAG")"
           jq -n --arg tag "$TAG" --arg sha "$GITHUB_SHA" --arg notes "$notes" \
             '{tag_name: $tag, target_commitish: $sha, name: $tag, body: $notes, generate_release_notes: true, make_latest: "legacy"}' \
