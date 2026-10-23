@@ -1,0 +1,147 @@
+import { act } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { preferReducedMotion, render } from '../test-render';
+import { CORD } from './cord';
+import { Desk } from './Desk';
+import { CORD_ANCHOR } from './desk-geometry';
+import { drawingAt } from './envelope/envelope-pose';
+import { magnifierDrawingAt } from './magnifier/magnifier-geometry';
+
+vi.mock('./envelope/envelope-pose', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./envelope/envelope-pose')>();
+  return { ...actual, drawingAt: vi.fn(actual.drawingAt) };
+});
+
+vi.mock('./magnifier/magnifier-geometry', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./magnifier/magnifier-geometry')>();
+  return { ...actual, magnifierDrawingAt: vi.fn(actual.magnifierDrawingAt) };
+});
+
+let cleanup: (() => void) | undefined;
+
+beforeEach(() => {
+  preferReducedMotion(false);
+  document.documentElement.dataset.colorScheme = 'light';
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  cleanup?.();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+  localStorage.clear();
+  delete document.documentElement.dataset.colorScheme;
+});
+
+function showDesk(pointerType = 'mouse', motion: 'full' | 'reduced' = 'full') {
+  const view = render(<Desk remainingMs={100_000} motion={motion} quote={undefined} />);
+  cleanup = view.unmount;
+  const svg = view.container.querySelector('svg');
+  const zone = view.container.querySelector<HTMLSpanElement>('.lamp-cord-zone');
+  const pull = view.container.querySelector('.lamp-pull');
+  if (!svg || !zone || !pull) throw new Error('missing lamp');
+  vi.spyOn(svg, 'getScreenCTM').mockReturnValue(new DOMMatrix());
+
+  const pointer = (type: string, distance = 0) =>
+    act(() => {
+      zone.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 1,
+          pointerType,
+          button: 0,
+          clientX: CORD_ANCHOR.x,
+          clientY: CORD_ANCHOR.y + CORD.length + distance,
+        }),
+      );
+    });
+  const click = () => act(() => zone.click());
+  const pullY = () => {
+    const position = pull.getAttribute('transform')?.match(/^translate\(\S+ (\S+)\)/);
+    if (!position?.[1]) throw new Error('missing pull position');
+    return Number(position[1]);
+  };
+  return { pointer, click, pullY };
+}
+
+describe('Desk cord', () => {
+  it.each(['mouse', 'touch'])('pulls down on a %s tap and switches only once', (pointerType) => {
+    const { pointer, click, pullY } = showDesk(pointerType);
+    const restingY = pullY();
+    pointer('pointerdown');
+    pointer('pointerup');
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+    click();
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+
+    act(() => vi.advanceTimersByTime(100));
+    expect(pullY()).toBeGreaterThan(restingY);
+    expect(pullY()).toBeLessThan(restingY + CORD.switchAt);
+    act(() => vi.advanceTimersByTime(CORD.tug.seconds * 1000 - 100 + 20));
+    expect(pullY()).toBeGreaterThan(restingY + CORD.switchAt);
+  });
+
+  it('keeps a cancelled press from activating the lamp', () => {
+    const { pointer, click } = showDesk('touch');
+    pointer('pointerdown');
+    pointer('pointercancel');
+    click();
+    expect(document.documentElement.dataset.colorScheme).toBe('light');
+  });
+
+  it('releases a lost pointer capture so the next tap works', () => {
+    const { pointer } = showDesk();
+    pointer('pointerdown');
+    pointer('lostpointercapture');
+    expect(document.documentElement.dataset.colorScheme).toBe('light');
+    pointer('pointerdown');
+    pointer('pointerup');
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+  });
+
+  it('does not switch again when a real pull ends with a click', () => {
+    const { pointer, click } = showDesk();
+    pointer('pointerdown');
+    pointer('pointermove', CORD.switchAt * 3);
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+    pointer('pointermove', CORD.switchAt * 4);
+    pointer('pointerup', CORD.switchAt * 4);
+    click();
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+  });
+
+  it('switches without swinging the cord when the reader prefers reduced motion', () => {
+    const { pointer, click, pullY } = showDesk('mouse', 'reduced');
+    const restingY = pullY();
+
+    click();
+    act(() => vi.advanceTimersByTime(100));
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+    expect(pullY()).toBe(restingY);
+
+    pointer('pointerdown');
+    pointer('pointermove', CORD.switchAt * 3);
+    expect(document.documentElement.dataset.colorScheme).toBe('light');
+    pointer('pointerup', CORD.switchAt * 3);
+    expect(pullY()).toBe(restingY);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(pullY()).toBe(restingY);
+  });
+});
+
+describe('Desk countdown', () => {
+  it('ticks the clock without rebuilding the envelope or magnifier', () => {
+    const desk = (remainingMs: number) => (
+      <Desk remainingMs={remainingMs} motion="full" quote={undefined} />
+    );
+    const view = render(desk(100_000));
+    cleanup = view.unmount;
+    vi.mocked(drawingAt).mockClear();
+    vi.mocked(magnifierDrawingAt).mockClear();
+
+    view.rerender(desk(99_000));
+    view.rerender(desk(98_000));
+
+    expect(drawingAt).not.toHaveBeenCalled();
+    expect(magnifierDrawingAt).not.toHaveBeenCalled();
+  });
+});

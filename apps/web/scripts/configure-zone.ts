@@ -15,7 +15,7 @@ const SETTINGS: Record<string, unknown> = {
   // Both rewrite HTML and inject scripts that the page's Content-Security-Policy would block.
   email_obfuscation: 'off',
   rocket_loader: 'off',
-  // HSTS is sent by the app (public/_headers and src/worker/app.ts). The zone header stays off so
+  // HSTS is sent by the app (public/_headers and src/worker/api/app.ts). The zone header stays off so
   // responses never carry two conflicting Strict-Transport-Security headers.
   // Disabled with every field cleared, matching Cloudflare's documented "off" state.
   security_header: {

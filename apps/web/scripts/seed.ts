@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { BIBLE_VERSES, COLLECTION, findContentProblems, GENERAL_QUOTES } from '@somequote/content';
-import { seedStatements } from '../src/worker/seed-sql';
+import { seedStatements } from '../src/worker/db/seed-sql';
 
 const target = process.argv.includes('--remote') ? '--remote' : '--local';
 

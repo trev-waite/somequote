@@ -19,7 +19,7 @@ Run Actions → Zone settings on `main`, first without *Apply* to see the plan a
 
 ## Credentials
 
-Set these repository secrets in Settings → Secrets and variables → Actions:
+Set these as secrets of the `prod` environment in Settings → Environments, which only `main` may deploy from:
 
 | Secret | Scope |
 | --- | --- |

@@ -5,8 +5,8 @@ import secretsWorkflow from '../../../../.github/workflows/secrets.yml?raw';
 import zoneWorkflow from '../../../../.github/workflows/zone.yml?raw';
 import headers from '../../public/_headers?raw';
 import wranglerConfig from '../../wrangler.jsonc?raw';
-import { createApp } from './app';
-import { D1QuoteRepository } from './d1-quote-repository';
+import { createApp } from './api/app';
+import { D1QuoteRepository } from './db/d1-quote-repository';
 
 describe('deployment configuration', () => {
   it('serves only on the custom domain, where the zone forces HTTPS and applies WAF rules', () => {
@@ -44,6 +44,29 @@ describe('deployment configuration', () => {
     // A concurrency group would let GitHub cancel a pending scan when a third push queues.
     expect(secretsWorkflow).not.toMatch(/^\s*concurrency:/m);
   });
+
+  it('reads the Cloudflare secrets only through the main-only prod environment', () => {
+    const deployJob = ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'));
+
+    expect(deployJob).toMatch(/^ {4}environment:\n {6}name: prod$/m);
+    expect(zoneWorkflow).toMatch(/^ {4}environment: prod$/m);
+  });
+
+  it.each([
+    ['ci.yml deploy', ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'))],
+    ['zone.yml zone', zoneWorkflow.slice(zoneWorkflow.indexOf('\n  zone:'))],
+  ])(
+    '%s keeps the Cloudflare secrets out of dependency installs and third-party actions',
+    (_, job) => {
+      const [jobHeader = '', ...steps] = job.split(/\n {6}- name: /);
+      const exposed = steps.filter(
+        (step) => /secrets\.CLOUDFLARE/.test(step) && /\buses:|bun install/.test(step),
+      );
+
+      expect(jobHeader).not.toMatch(/secrets\./);
+      expect(exposed).toEqual([]);
+    },
+  );
 
   it('rolls back at most once per run, after the only deploy', () => {
     const deploys = [...ciWorkflow.matchAll(/wrangler deploy\b/g)];
