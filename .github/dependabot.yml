@@ -10,13 +10,12 @@ updates:
       actions:
         patterns: ['*']
 
-  # Security fixes open PRs only for packages in package.json. Transitive ones still raise alerts.
+  # A vulnerable transitive package is fixed in the lockfile or by upgrading the direct package that
+  # requires it, never by an override. Until a release of that package accepts the fix, the alert stays open.
   - package-ecosystem: bun
     directory: /
     schedule:
       interval: monthly
-    allow:
-      - dependency-type: direct
     groups:
       minor-and-patch:
         update-types: [minor, patch]
