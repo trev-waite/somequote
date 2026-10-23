@@ -84,9 +84,9 @@ jobs:
 
       # PR-only, like the source check below: advisories and source sites change without a
       # code change, and neither should block deploying a change that already passed review.
-      - name: Audit dependencies
+      - name: Fail on vulnerabilities a direct dependency upgrade fixes
         if: github.event_name == 'pull_request'
-        run: bun audit --audit-level=high
+        run: bun run audit:dependencies
 
       - name: Typecheck
         run: bun run typecheck

@@ -52,6 +52,14 @@
         "vitest": "5.0.5",
       },
     },
+    "tools/dependency-audit": {
+      "name": "@somequote/dependency-audit",
+      "devDependencies": {
+        "@types/node": "26.6.5",
+        "typescript": "7.0.2",
+        "vitest": "5.0.5",
+      },
+    },
     "tools/secret-scan": {
       "name": "@somequote/secret-scan",
       "devDependencies": {
@@ -263,6 +271,8 @@
     "@sindresorhus/is": ["@sindresorhus/is@7.2.0", "", {}, "sha512-P1Cz1dWaFfR4IR+U13mqqiGsLFf1KbayybWwdd2vfctdV6hDpUkgCY0nKOLLTMSoRd/jJNjtbqzf13K8DCCXQw=="],
 
     "@somequote/content": ["@somequote/content@workspace:packages/content"],
+
+    "@somequote/dependency-audit": ["@somequote/dependency-audit@workspace:tools/dependency-audit"],
 
     "@somequote/domain": ["@somequote/domain@workspace:packages/domain"],
 

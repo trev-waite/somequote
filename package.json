@@ -22,6 +22,7 @@
     "db:seed:local": "bun run --cwd apps/web db:seed:local",
     "content:verify-sources": "bun run --cwd packages/content verify-sources",
     "scan:secrets": "bun tools/secret-scan/src/cli.ts",
+    "audit:dependencies": "bun tools/dependency-audit/src/cli.ts",
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {

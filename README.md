@@ -38,20 +38,22 @@ curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+4+*+*+*"
 | `bun run content:verify-sources` | Downloads every cited source and checks each quote against it |
 | `bun run db:migrate:local` / `db:seed:local` | Apply migrations / upsert the collection into the local database |
 | `bun run hooks:install` / `scan:secrets` | Enables the pre-push secret scan (once per clone) / scans the whole history |
+| `bun run audit:dependencies` | Fails on any vulnerability that upgrading a direct dependency would fix |
 
 Before opening a PR, run `bun run lint && bun run typecheck && bun run test && bun run test:e2e`. Install the Playwright browsers once with `cd apps/web && bunx playwright install chromium webkit`.
 
 ## Layout
 
 ```
-packages/domain    quote model · publication clock · selection · ensurePublication · QuoteRepository contract
-packages/content   curated quotes and provenance · editorial rules · source verification
-apps/web           the deployable Worker
-  src/worker       fetch (Hono API) and scheduled (cron) · D1QuoteRepository · seed SQL
-  src/shared       HTTP contract (Zod mini), used by the Worker and the client
-  src/client       React app · reveal timing · styles
-  migrations       D1 schema; constraints and triggers enforce the invariants
-tools/secret-scan  dependency-free credential scanner for CI and the pre-push hook
+packages/domain         quote model · publication clock · selection · ensurePublication · QuoteRepository contract
+packages/content        curated quotes and provenance · editorial rules · source verification
+apps/web                the deployable Worker
+  src/worker            fetch (Hono API) and scheduled (cron) · D1QuoteRepository · seed SQL
+  src/shared            HTTP contract (Zod mini), used by the Worker and the client
+  src/client            React app · reveal timing · styles
+  migrations            D1 schema; constraints and triggers enforce the invariants
+tools/secret-scan       dependency-free credential scanner for CI and the pre-push hook
+tools/dependency-audit  CI check for vulnerabilities a direct dependency upgrade fixes
 ```
 
 ## Content
