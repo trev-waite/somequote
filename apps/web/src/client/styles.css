@@ -196,7 +196,6 @@ body {
   font-kerning: normal;
   font-synthesis: none;
   text-wrap: balance;
-  hanging-punctuation: first last;
 }
 
 .quote p {

@@ -2,7 +2,7 @@
 
 One quote a day, the same for everyone. A quote reveals itself word by word, and a writer's desk below it has a lamp and a clock counting down to the next quote.
 
-- About 80% enduring quotes from writers, philosophers, scientists, and leaders; about 20% verses from the World English Bible.
+- About 80% enduring quotes from writers, philosophers, scientists, leaders, and athletes; about 20% verses from the World English Bible.
 - A new quote at midnight in New York, published once and kept in a permanent history.
 - One Cloudflare Worker serving the React app as static assets, a JSON API, and a daily cron, backed by D1.
 
@@ -39,8 +39,11 @@ curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+4+*+*+*"
 | `bun run db:migrate:local` / `db:seed:local` | Apply migrations / upsert the collection into the local database |
 | `bun run hooks:install` / `scan:secrets` | Enables the pre-push secret scan (once per clone) / scans the whole history |
 | `bun run audit:dependencies` | Fails on any vulnerability that upgrading a direct dependency would fix, and on any critical one |
+| `bun run release:check` | Validates the app's release version and rejects tag collisions |
 
 Before opening a PR, run `bun run lint && bun run typecheck && bun run test && bun run test:e2e`. Install the Playwright browsers once with `cd apps/web && bunx playwright install chromium webkit`.
+
+PRs with non-Markdown changes must increase the root app version; see [release versions](doc/operations.md#release-versions).
 
 ## Layout
 
@@ -59,11 +62,12 @@ apps/web                the deployable Worker
   migrations            D1 schema; constraints and triggers enforce the invariants
 tools/secret-scan       dependency-free credential scanner for CI and the pre-push hook
 tools/dependency-audit  CI check for fixable or critical dependency vulnerabilities
+tools/release           reviewed app version and release-tag checks
 ```
 
 ## Content
 
-Every quote comes from a US public-domain text or the World English Bible, and `content:verify-sources` checks it against that source. Verse text is never edited. To add a quote, edit `packages/content/src`, then run `bun run test` and `bun run content:verify-sources`. To retire one, set `enabled: false`, because published history keeps it.
+Almost every quote comes from a US public-domain text or the World English Bible, and `content:verify-sources` checks it against that source. A few well-known sayings by sports figures and racing drivers have no such text; these live in `packages/content/src/quotes/sports.ts`, are `attested` with where they were said and the year, and need manual review. Verse text is never edited. To add a quote, edit the lists in `packages/content/src/quotes`, then run `bun run test` and `bun run content:verify-sources`. To retire one, set `enabled: false`, because published history keeps it.
 
 ## Documentation
 

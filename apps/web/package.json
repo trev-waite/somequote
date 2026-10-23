@@ -17,7 +17,6 @@
     "db:seed:remote": "bun scripts/seed.ts --remote",
     "zone:plan": "bun scripts/configure-zone.ts",
     "zone:apply": "bun scripts/configure-zone.ts --apply",
-    "deploy": "bun run build && wrangler deploy",
     "smoke": "bun scripts/smoke.ts"
   },
   "dependencies": {

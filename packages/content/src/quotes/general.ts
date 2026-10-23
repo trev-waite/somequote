@@ -1,4 +1,4 @@
-import type { SourceId } from './sources';
+import type { SourceId } from '../sources';
 
 export interface GeneralEntry {
   readonly id: string;

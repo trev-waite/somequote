@@ -6,12 +6,19 @@ Cloudflare and GitHub setup that lives outside the repository.
 
 Merging to `main` deploys through CI. Before the first deploy, `somequote.com` must be active in the same Cloudflare account with no apex `A`, `AAAA`, or `CNAME` record. Don't connect Workers Builds, because it would deploy without CI's checks.
 
-To deploy manually:
+To deploy manually, run Actions → CI/CD → Run workflow on `main`, using the same checks and `prod` environment as a merge.
 
-```bash
-cd apps/web && bunx wrangler login
-bun run db:migrate:remote && bun run db:seed:remote && bun run deploy
-```
+## Release versions
+
+The root `package.json` versions the whole deployed app. For every PR with non-Markdown changes, run `bun pm version patch --no-git-tag-version` at the root and commit the change. Choose `minor` for features or `major` for breaking changes. Markdown-only changes need no bump and don't deploy automatically.
+
+CI requires a stable version higher than the PR base. Check locally with `RELEASE_BASE_REF=origin/main bun run release:check`. If another PR lands first, update your branch and bump again.
+
+After production passes its smoke test, CI publishes `v<version>` at the deployed commit with generated GitHub release notes. Cloudflare uses the same tag. No additional secrets are needed.
+
+An existing tag for a different commit blocks deployment before migrations; exact-commit retries are allowed. Stale or failed deployments publish no release. Worker rollback uses Cloudflare version IDs and doesn't undo D1 migrations or seeded content.
+
+If release publication fails after a healthy deployment, re-run only the failed release job. GitHub can reject an older commit whose workflows differ from `main`; an owner must then create the missing tag at the deployed SHA using their own account before retrying. Releases record deployment history; check the `prod` environment or Cloudflare for the current live deployment.
 
 ## Zone configuration
 

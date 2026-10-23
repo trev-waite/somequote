@@ -1,12 +1,22 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { BIBLE_VERSES, COLLECTION, findContentProblems, GENERAL_QUOTES } from '@somequote/content';
+import {
+  BIBLE_VERSES,
+  COLLECTION,
+  findContentProblems,
+  GENERAL_QUOTES,
+  SPORTS_QUOTES,
+} from '@somequote/content';
 import { seedStatements } from '../src/worker/db/seed-sql';
 
 const target = process.argv.includes('--remote') ? '--remote' : '--local';
 
-const problems = findContentProblems({ general: GENERAL_QUOTES, bible: BIBLE_VERSES });
+const problems = findContentProblems({
+  general: GENERAL_QUOTES,
+  sports: SPORTS_QUOTES,
+  bible: BIBLE_VERSES,
+});
 if (problems.length > 0) {
   console.error(`The collection has ${problems.length} problem(s):\n${problems.join('\n')}`);
   process.exit(1);
