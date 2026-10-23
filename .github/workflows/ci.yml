@@ -195,12 +195,12 @@ jobs:
     needs: [checks, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment:
+      name: prod
+      url: https://somequote.com
     concurrency:
       group: production
       cancel-in-progress: false
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     defaults:
       run:
         working-directory: apps/web
@@ -211,7 +211,7 @@ jobs:
         working-directory: .
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Set the CLOUDFLARE_DEPLOY_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (doc/operations.md, Credentials)."
+            echo "::error::Set the CLOUDFLARE_DEPLOY_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets in the prod environment (doc/operations.md, Credentials)."
             exit 1
           fi
           head="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
@@ -222,6 +222,8 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Checkout
         if: steps.fresh.outputs.current == 'true'
@@ -277,14 +279,23 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Live version before deploy: $version"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Apply D1 migrations
         if: steps.fresh.outputs.current == 'true'
         run: bun run db:migrate:remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Sync the quote collection
         if: steps.fresh.outputs.current == 'true'
         run: bun run db:seed:remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy
         if: steps.fresh.outputs.current == 'true'
@@ -294,6 +305,8 @@ jobs:
             --message "${message:-Deploy ${GITHUB_SHA}}" --tag "${GITHUB_SHA::12}"
         env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Smoke test somequote.com
         if: steps.fresh.outputs.current == 'true'
@@ -312,6 +325,8 @@ jobs:
           echo "::error::Smoke test failed; rolled back to $VERSION"
         env:
           VERSION: ${{ steps.previous.outputs.version }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # Reports only; this run stays failed and takes no further action either way.
       - name: Check production after the rollback

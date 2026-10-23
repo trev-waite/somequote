@@ -45,6 +45,24 @@ describe('deployment configuration', () => {
     expect(secretsWorkflow).not.toMatch(/^\s*concurrency:/m);
   });
 
+  it('reads the Cloudflare secrets only through the main-only prod environment', () => {
+    const deployJob = ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'));
+
+    expect(deployJob).toMatch(/^ {4}environment:\n {6}name: prod$/m);
+    expect(zoneWorkflow).toMatch(/^ {4}environment: prod$/m);
+  });
+
+  it('keeps the Cloudflare secrets out of dependency installs and third-party actions', () => {
+    const deployJob = ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'));
+    const [jobHeader = '', ...steps] = deployJob.split(/\n {6}- name: /);
+    const exposed = steps.filter(
+      (step) => /secrets\.CLOUDFLARE/.test(step) && /\buses:|bun install/.test(step),
+    );
+
+    expect(jobHeader).not.toMatch(/secrets\./);
+    expect(exposed).toEqual([]);
+  });
+
   it('rolls back at most once per run, after the only deploy', () => {
     const deploys = [...ciWorkflow.matchAll(/wrangler deploy\b/g)];
     const rollbacks = [...ciWorkflow.matchAll(/wrangler rollback\b/g)];
