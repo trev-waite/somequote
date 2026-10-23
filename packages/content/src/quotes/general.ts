@@ -1,14 +1,11 @@
 import type { SourceId } from '../sources';
-import { SPORTS_QUOTES } from './sports';
 
 export interface GeneralEntry {
   readonly id: string;
   readonly text: string;
   readonly author: string;
   readonly source: string;
-  readonly provenance:
-    | { readonly sourceId: SourceId; readonly locator: string }
-    | { readonly attested: string };
+  readonly provenance: { readonly sourceId: SourceId; readonly locator: string };
   readonly enabled?: boolean;
 }
 
@@ -2470,5 +2467,4 @@ export const GENERAL_QUOTES: readonly GeneralEntry[] = [
     source: 'Meditations',
     provenance: { sourceId: 'gutenberg-15877', locator: 'Book XI, 18' },
   },
-  ...SPORTS_QUOTES,
 ];

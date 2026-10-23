@@ -1,6 +1,7 @@
 import { isAttributionText, isQuoteId, QUOTE_TEXT_MAX_LENGTH } from '@somequote/domain';
 import type { BibleEntry } from './quotes/bible';
 import type { GeneralEntry } from './quotes/general';
+import type { SportsEntry } from './quotes/sports';
 
 const MIN_QUOTE_LENGTH = 16;
 const MAX_QUOTE_LINES = 8;
@@ -15,18 +16,20 @@ const PASSAGE_PATTERN = /^[1-3A-Z]{3} (\d+):(\d+)(?:-(\d+))?$/;
 
 export interface ContentEntries {
   readonly general: readonly GeneralEntry[];
+  readonly sports: readonly SportsEntry[];
   readonly bible: readonly BibleEntry[];
 }
 
-export function findContentProblems({ general, bible }: ContentEntries): string[] {
+export function findContentProblems({ general, sports, bible }: ContentEntries): string[] {
   const problems: string[] = [];
   const report = (id: string, problem: string) => problems.push(`${id}: ${problem}`);
+  const all = [...general, ...sports, ...bible];
 
-  for (const entry of [...general, ...bible]) {
+  for (const entry of all) {
     if (!isQuoteId(entry.id)) report(entry.id, 'id must be lowercase words joined by hyphens');
     for (const problem of textProblems(entry.text)) report(entry.id, problem);
   }
-  for (const entry of general) {
+  for (const entry of [...general, ...sports]) {
     for (const [field, value] of [
       ['author', entry.author],
       ['source', entry.source],
@@ -36,18 +39,20 @@ export function findContentProblems({ general, bible }: ContentEntries): string[
       if (!isAttributionText(value)) report(entry.id, `${field} must be short, visible text`);
       if (/['"]/.test(value)) report(entry.id, `${field} must use typographic quotes`);
     }
-    if ('attested' in entry.provenance && !ATTESTED_PATTERN.test(entry.provenance.attested)) {
-      report(entry.id, 'attested provenance must say where it was said and end with the year');
+  }
+  for (const entry of sports) {
+    if (!ATTESTED_PATTERN.test(entry.attested)) {
+      report(entry.id, 'attested must say where it was said and end with the year');
     }
   }
   for (const entry of bible) {
     for (const problem of verseProblems(entry)) report(entry.id, problem);
   }
 
-  for (const id of duplicates([...general, ...bible].map((entry) => entry.id))) {
+  for (const id of duplicates(all.map((entry) => entry.id))) {
     report(id, 'id is used more than once');
   }
-  for (const text of duplicates([...general, ...bible].map((entry) => entry.text.toLowerCase()))) {
+  for (const text of duplicates(all.map((entry) => entry.text.toLowerCase()))) {
     report(text.slice(0, 40), 'text appears more than once');
   }
   return problems;
