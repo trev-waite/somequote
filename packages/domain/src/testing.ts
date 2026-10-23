@@ -1,6 +1,5 @@
 import type { Random } from './selection';
 
-/** Deterministic `Random` (mulberry32) so tests can replay a sequence of choices. */
 export function seededRandom(seed: number): Random {
   let state = seed >>> 0;
   return () => {

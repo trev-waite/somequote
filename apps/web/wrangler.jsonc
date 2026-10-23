@@ -4,6 +4,11 @@
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-10-18",
   "upload_source_maps": true,
+  // Serve only on the custom domain, where the zone's HTTPS redirect and WAF rules apply
+  // (scripts/configure-zone.ts). workers.dev and version preview URLs would bypass both.
+  "routes": [{ "pattern": "somequote.com", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     // The React app is served as static assets; only /api/* reaches the Worker.
     "not_found_handling": "single-page-application",
@@ -13,9 +18,15 @@
     {
       "binding": "DB",
       "database_name": "somequote",
+      "database_id": "063822de-f451-40ae-9770-58c3955441dd",
       "migrations_dir": "migrations"
-      // No database_id yet. Local development needs none. Before deploying, add the id printed by
-      // `wrangler d1 create somequote` (see README), or let `wrangler deploy` provision one.
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "API_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
     }
   ],
   "triggers": {

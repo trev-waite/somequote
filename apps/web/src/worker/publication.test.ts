@@ -9,7 +9,7 @@ import {
   ROTATION_LENGTH,
 } from '@somequote/domain';
 import { seededRandom } from '@somequote/domain/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { D1QuoteRepository } from './d1-quote-repository';
 import {
   bibleVerse,
@@ -185,6 +185,38 @@ describe('history-driven selection', () => {
       NoEligibleQuoteError,
     );
     expect(await publicationRows()).toEqual([]);
+  });
+});
+
+describe('history pagination', () => {
+  it('seeks to an old cursor without reading the newer history', async () => {
+    await insertQuotes([generalQuote('general-1')]);
+    await env.DB.prepare(`
+      WITH RECURSIVE days(day) AS (
+        SELECT 0 UNION ALL SELECT day + 1 FROM days WHERE day < 4095
+      )
+      INSERT INTO publications (publish_date, quote_id)
+      SELECT date('2000-01-01', '+' || day || ' days'), 'general-1' FROM days
+    `).run();
+    const before = parsePublicationDate('2000-01-10');
+    const prepare = vi.spyOn(env.DB, 'prepare');
+    let sql: string | undefined;
+    try {
+      const page = await repository.listPublications({ before, limit: 3 });
+      expect(page.map((item) => item.date)).toEqual(['2000-01-09', '2000-01-08', '2000-01-07']);
+      sql = prepare.mock.calls[0]?.[0];
+    } finally {
+      prepare.mockRestore();
+    }
+    if (sql === undefined) throw new Error('No history query was executed');
+
+    const { meta } = await env.DB.prepare(sql).bind(before, 3).all();
+
+    expect(meta.rows_read).toBeLessThan(30);
+    const newest = await repository.listPublications({ before: null, limit: 3 });
+    expect(newest.map((item) => item.date)).toEqual(
+      [4095, 4094, 4093].map((day) => addDays(parsePublicationDate('2000-01-01'), day)),
+    );
   });
 });
 

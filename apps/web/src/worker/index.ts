@@ -4,7 +4,12 @@ import { D1QuoteRepository } from './d1-quote-repository';
 
 const repositoryFor = (env: Env) => new D1QuoteRepository(env.DB);
 
-const app = createApp({ repositoryFor, now: () => new Date(), random: Math.random });
+const app = createApp({
+  repositoryFor,
+  now: () => new Date(),
+  random: Math.random,
+  cacheFor: () => caches.default,
+});
 
 export default {
   fetch: app.fetch,

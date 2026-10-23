@@ -2,8 +2,10 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicationDto } from '../shared/api-contract';
 import { App } from './App';
-import { TodayQuoteUnavailableError } from './api';
+import { type fetchTodayPublication, TodayQuoteUnavailableError } from './api';
 import { preferReducedMotion, render } from './test-render';
+
+vi.mock('./DeferredDesk', () => ({ DeferredDesk: () => null }));
 
 const publication = PublicationDto.parse({
   date: '2026-10-18',
@@ -65,22 +67,6 @@ describe('App', () => {
     expect(view.container.querySelector('article')?.getAttribute('data-motion')).toBe('fade');
   });
 
-  it('switches between light and dark mode from the lamp', () => {
-    const view = render(<App load={() => new Promise(() => undefined)} />);
-    cleanup = view.unmount;
-    const lamp = () => view.container.querySelector<HTMLButtonElement>('.lamp-switch');
-    const before = document.documentElement.dataset.colorScheme ?? 'light';
-
-    act(() => lamp()?.click());
-
-    expect(document.documentElement.dataset.colorScheme).toBe(
-      before === 'light' ? 'dark' : 'light',
-    );
-    expect(lamp()?.getAttribute('aria-label')).toContain(
-      before === 'light' ? 'light mode' : 'dark mode',
-    );
-  });
-
   it('counts down to the next quote', () => {
     const view = render(<App load={() => new Promise(() => undefined)} />);
     cleanup = view.unmount;
@@ -88,6 +74,48 @@ describe('App', () => {
     expect(view.container.querySelector('[role="timer"]')?.textContent).toMatch(
       /^\d{2}:\d{2}:\d{2} until the next quote$/,
     );
+  });
+
+  it('keeps checking past midnight until the server has published the next quote', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-10-19T03:59:50Z'));
+      const next = PublicationDto.parse({
+        date: '2026-10-19',
+        quote: { ...publication.quote, id: 'next-quote', text: 'A new day.' },
+      });
+      // The device clock runs ahead of the server's, so the first check still gets yesterday.
+      const load = vi
+        .fn<typeof fetchTodayPublication>()
+        .mockResolvedValueOnce(publication)
+        .mockResolvedValueOnce(publication)
+        .mockRejectedValueOnce(new TodayQuoteUnavailableError('offline'))
+        .mockResolvedValueOnce(next);
+      const view = render(<App load={load} />);
+      cleanup = view.unmount;
+      const shownText = () =>
+        view.container.querySelector('blockquote .visually-hidden')?.textContent;
+      const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+      await advance(3000);
+      expect(shownText()).toBe(`“${publication.quote.text}”`);
+
+      await advance(7100);
+      expect(load).toHaveBeenCalledTimes(2);
+      expect(load).toHaveBeenLastCalledWith(expect.any(AbortSignal), { fresh: true });
+      expect(shownText()).toBe(`“${publication.quote.text}”`);
+
+      await advance(2000);
+      expect(load).toHaveBeenCalledTimes(3);
+      expect(shownText()).toBe(`“${publication.quote.text}”`);
+      expect(view.container.querySelector('[role="alert"]')).toBeNull();
+
+      await advance(5000);
+      expect(load).toHaveBeenCalledTimes(4);
+      expect(shownText()).toBe('“A new day.”');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('offers a retry when the quote cannot be loaded, and recovers', async () => {

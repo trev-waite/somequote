@@ -53,7 +53,6 @@ function snapshotFrom(
   };
 }
 
-/** Publishes one quote per day for `days` days, the way the service does, and returns the history. */
 function simulate({
   enabled,
   days,

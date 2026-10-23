@@ -1,7 +1,3 @@
-/**
- * Primary texts the collection is quoted from. Every quote names one of these, and
- * `bun run content:verify-sources` downloads each text and checks the quote against it.
- */
 export type SourceFormat = 'text' | 'html' | 'ebible-vpl-zip';
 
 export interface SourceText {
@@ -34,7 +30,13 @@ export const SOURCES = {
   'seneca-letter-101': seneca(101),
   'gutenberg-11': { title: 'Alice’s Adventures in Wonderland', url: gutenberg(11), format: 'text' },
   'gutenberg-12': { title: 'Through the Looking-Glass', url: gutenberg(12), format: 'text' },
+  'gutenberg-23': {
+    title: 'Narrative of the Life of Frederick Douglass, an American Slave',
+    url: gutenberg(23),
+    format: 'text',
+  },
   'gutenberg-45': { title: 'Anne of Green Gables', url: gutenberg(45), format: 'text' },
+  'gutenberg-84': { title: 'Frankenstein', url: gutenberg(84), format: 'text' },
   'gutenberg-100': {
     title: 'The Complete Works of William Shakespeare',
     url: gutenberg(100),
@@ -65,7 +67,13 @@ export const SOURCES = {
   },
   'gutenberg-289': { title: 'The Wind in the Willows', url: gutenberg(289), format: 'text' },
   'gutenberg-326': { title: 'Steep Trails', url: gutenberg(326), format: 'text' },
+  'gutenberg-386': {
+    title: 'Virginibus Puerisque, and Other Papers',
+    url: gutenberg(386),
+    format: 'text',
+  },
   'gutenberg-514': { title: 'Little Women', url: gutenberg(514), format: 'text' },
+  'gutenberg-556': { title: 'Rewards and Fairies', url: gutenberg(556), format: 'text' },
   'gutenberg-652': { title: 'Rasselas, Prince of Abyssinia', url: gutenberg(652), format: 'text' },
   'gutenberg-790': { title: 'Lady Windermere’s Fan', url: gutenberg(790), format: 'text' },
   'gutenberg-882': { title: 'Sketches by Boz', url: gutenberg(882), format: 'text' },
@@ -76,9 +84,15 @@ export const SOURCES = {
   },
   'gutenberg-1260': { title: 'Jane Eyre', url: gutenberg(1260), format: 'text' },
   'gutenberg-1322': { title: 'Leaves of Grass', url: gutenberg(1322), format: 'text' },
+  'gutenberg-1342': { title: 'Pride and Prejudice', url: gutenberg(1342), format: 'text' },
   'gutenberg-1365': {
     title: 'The Complete Poetical Works of Henry Wadsworth Longfellow',
     url: gutenberg(1365),
+    format: 'text',
+  },
+  'gutenberg-1568': {
+    title: 'Poems (William Ernest Henley)',
+    url: gutenberg(1568),
     format: 'text',
   },
   'gutenberg-1656': {
@@ -103,13 +117,20 @@ export const SOURCES = {
     url: gutenberg(2600),
     format: 'text',
   },
+  'gutenberg-2895': {
+    title: 'Following the Equator: A Journey Around the World',
+    url: gutenberg(2895),
+    format: 'text',
+  },
   'gutenberg-2944': { title: 'Essays: First Series', url: gutenberg(2944), format: 'text' },
+  'gutenberg-3176': { title: 'The Innocents Abroad', url: gutenberg(3176), format: 'text' },
   'gutenberg-3330': {
     title: 'The Analects of Confucius',
     translator: 'James Legge',
     url: gutenberg(3330),
     format: 'text',
   },
+  'gutenberg-4507': { title: 'As a Man Thinketh', url: gutenberg(4507), format: 'text' },
   'gutenberg-4800': {
     title: 'The Complete Poetical Works of Percy Bysshe Shelley',
     url: gutenberg(4800),

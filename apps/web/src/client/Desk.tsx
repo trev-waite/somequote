@@ -1,36 +1,29 @@
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import type { QuoteDto } from '../shared/api-contract';
+import { Book } from './Book';
 import { currentColorScheme, switchColorScheme, useColorScheme } from './color-scheme';
 import { CORD, Cord } from './cord';
+import { DeskPart } from './DeskPart';
+import { Drawer } from './Drawer';
 import {
   CORD_ANCHOR,
   DESK_PARTS,
   LAMP_BOX,
   LAMP_LIGHT,
-  type Part,
+  overlay,
   type Point,
-  type Tone,
   VIEW_BOX,
 } from './desk-geometry';
+import { Envelope } from './Envelope';
 import { FlipClock, FlipClockDefs } from './FlipClock';
-import type { SolidPaths } from './iso';
+import { Magnifier } from './Magnifier';
 import type { Motion } from './reveal';
+import { ShipInBottle } from './ShipInBottle';
 
-/** Movement beyond this many CSS pixels turns a press on the cord into a pull rather than a click. */
 const DRAG_SLOP_PX = 4;
 const CLICK_SUPPRESSION_MS = 400;
 
-/** Places an overlay over a region of the drawing given in viewBox units. */
-function overlay({ x, y, width, height }: { x: number; y: number; width: number; height: number }) {
-  return {
-    left: `${((x - VIEW_BOX.x) / VIEW_BOX.width) * 100}%`,
-    top: `${((y - VIEW_BOX.y) / VIEW_BOX.height) * 100}%`,
-    width: `${(width / VIEW_BOX.width) * 100}%`,
-    height: `${(height / VIEW_BOX.height) * 100}%`,
-  } satisfies CSSProperties;
-}
-
 const lampSwitchStyle = overlay(LAMP_BOX);
-/** The part of the drawing that grabs the cord instead of scrolling the page on touch screens. */
 const cordZoneStyle = overlay({
   x: CORD_ANCHOR.x - 13,
   y: CORD_ANCHOR.y - 2,
@@ -38,84 +31,6 @@ const cordZoneStyle = overlay({
   height: CORD.length + 16,
 });
 
-function Solid({
-  paths,
-  tone,
-  crease = 'faint',
-}: {
-  paths: SolidPaths;
-  tone: Tone;
-  crease?: Tone | 'none';
-}) {
-  return (
-    <g className="iso-solid">
-      <path className="iso-fill" d={paths.fill} />
-      {paths.shades.map((d, shade) =>
-        d ? <path key={d} className="iso-shade" data-shade={shade} d={d} /> : null,
-      )}
-      <path className="iso-top" d={paths.top} />
-      {crease !== 'none' && paths.crease && (
-        <path className="iso-line" data-tone={crease} d={paths.crease} />
-      )}
-      {crease !== 'none' && paths.bevel && (
-        <path className="iso-line" data-tone={crease} d={paths.bevel} />
-      )}
-      <path className="iso-line" data-tone={tone} d={paths.outline} />
-    </g>
-  );
-}
-
-function PartView({ part }: { part: Part }) {
-  switch (part.kind) {
-    case 'halo':
-      return <path className="iso-halo" d={part.d} filter="url(#desk-halo)" />;
-    case 'solid':
-      return (
-        <Solid
-          paths={part.paths}
-          tone={part.tone}
-          {...(part.crease ? { crease: part.crease } : {})}
-        />
-      );
-    case 'line':
-      return (
-        <path
-          className="iso-line"
-          data-tone={part.tone}
-          data-dotted={part.dotted ? '' : undefined}
-          d={part.d}
-        />
-      );
-    case 'writing':
-      return (
-        <text
-          className="desk-writing"
-          transform={part.transform}
-          x={part.x}
-          y={part.y}
-          fontSize={part.size}
-        >
-          {part.text}
-        </text>
-      );
-    case 'light':
-      return part.layer === 'pool' ? (
-        <ellipse
-          className="lamp-light lamp-pool"
-          cx={LAMP_LIGHT.pool.cx}
-          cy={LAMP_LIGHT.pool.cy}
-          rx={LAMP_LIGHT.pool.rx}
-          ry={LAMP_LIGHT.pool.ry}
-          fill="url(#lamp-pool)"
-          clipPath="url(#desk-top)"
-        />
-      ) : (
-        <path className="lamp-light lamp-rim" d={LAMP_LIGHT.rim} />
-      );
-  }
-}
-
-/** A smooth line through every link, drawn as beads by the stroke's dash pattern. */
 function cordPath(links: readonly Point[]): string {
   const [first, ...rest] = links;
   if (!first) return '';
@@ -133,21 +48,21 @@ function cordPath(links: readonly Point[]): string {
 interface DeskProps {
   readonly remainingMs: number;
   readonly motion: Motion;
+  readonly quote: QuoteDto | undefined;
 }
 
-/**
- * A writer's desk with a banker's lamp and a flip clock. The lamp switches the color scheme (lit is
- * light mode): click it, or pull its cord, which a mouse pointer can also brush and swing. The clock
- * counts down to the next quote.
- */
-export function Desk({ remainingMs, motion }: DeskProps) {
+export function Desk({ remainingMs, motion, quote }: DeskProps) {
   const scheme = useColorScheme();
   const sceneRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const cordRef = useRef<SVGPathElement>(null);
   const pullRef = useRef<SVGGElement>(null);
+  const aboveRef = useRef<SVGGElement>(null);
+  const restRef = useRef<SVGGElement>(null);
   const zoneRef = useRef<HTMLSpanElement>(null);
   const switchRef = useRef<HTMLButtonElement>(null);
+  const motionRef = useRef(motion);
+  motionRef.current = motion;
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -165,6 +80,7 @@ export function Desk({ remainingMs, motion }: DeskProps) {
       return { x, y };
     };
     const toggle = () => switchColorScheme(currentColorScheme() === 'light' ? 'dark' : 'light');
+    const still = () => motionRef.current === 'reduced';
 
     let pullSwitched = false;
     const cord = new Cord(CORD_ANCHOR, {
@@ -208,9 +124,11 @@ export function Desk({ remainingMs, motion }: DeskProps) {
     let ignoreClickUntil = 0;
 
     const activate = () => {
-      cord.touch(null);
-      cord.tug();
-      wake();
+      if (!still()) {
+        cord.touch(null);
+        cord.tug();
+        wake();
+      }
       toggle();
     };
     const onPress = (event: PointerEvent) => {
@@ -239,12 +157,18 @@ export function Desk({ remainingMs, motion }: DeskProps) {
       const tapped = !pulling.moved && !pullSwitched && event.type === 'pointerup';
       ignoreClickUntil = performance.now() + CLICK_SUPPRESSION_MS;
       pulling = null;
-      cord.release();
+      if (still()) {
+        cord.settle();
+        draw();
+      } else {
+        cord.release();
+      }
       if (tapped) activate();
       else wake();
     };
     const onHover = (event: PointerEvent) => {
-      if (event.pointerType !== 'mouse' || pulling) return;
+      if (event.pointerType !== 'mouse' || pulling || still()) return;
+      if (event.target instanceof Element && event.target.closest('.magnifier-grip')) return;
       const point = toDrawing(event);
       if (!point) return;
       cord.touch(point);
@@ -298,24 +222,71 @@ export function Desk({ remainingMs, motion }: DeskProps) {
             <stop offset="0.55" stopColor="var(--lamp-light)" stopOpacity="0.2" />
             <stop offset="1" stopColor="var(--lamp-light)" stopOpacity="0" />
           </radialGradient>
+          {/* The same pool in drawing units, for faces that light themselves: `lit` parts. */}
+          <radialGradient
+            id="lamp-pool-space"
+            gradientUnits="userSpaceOnUse"
+            cx="0"
+            cy="0"
+            r="1"
+            gradientTransform={`translate(${LAMP_LIGHT.pool.cx} ${LAMP_LIGHT.pool.cy}) scale(${LAMP_LIGHT.pool.rx} ${LAMP_LIGHT.pool.ry})`}
+          >
+            <stop offset="0" stopColor="var(--lamp-light)" stopOpacity="0.5" />
+            <stop offset="0.55" stopColor="var(--lamp-light)" stopOpacity="0.2" />
+            <stop offset="1" stopColor="var(--lamp-light)" stopOpacity="0" />
+          </radialGradient>
           <clipPath id="desk-top">
             <path d={LAMP_LIGHT.pool.clip} />
           </clipPath>
+          <radialGradient id="magnifier-vignette">
+            <stop offset="0.62" stopColor="var(--iso-hi)" stopOpacity="0" />
+            <stop offset="1" stopColor="var(--iso-hi)" stopOpacity="0.16" />
+          </radialGradient>
+        </defs>
+        <g id="desk-body">
+          {DESK_PARTS.map((part, index) => {
+            if (part.kind === 'book') {
+              return <Book key="book" motion={motion} controls={sceneRef} above={aboveRef} />;
+            }
+            if (part.kind === 'drawer') {
+              return <Drawer key="drawer" motion={motion} controls={sceneRef} />;
+            }
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the parts are a fixed painter's order
+              <DeskPart key={index} part={part} />
+            );
+          })}
+        </g>
+        <g id="desk-ship">
+          <ShipInBottle motion={motion} controls={sceneRef} />
+        </g>
+        <g id="desk-cord">
+          <path ref={cordRef} className="lamp-cord" />
+          <g ref={pullRef} className="lamp-pull">
+            <path className="lamp-pull-body" d="M-0.9 0H0.9L1.1 2.2H-1.1Z" />
+            <path
+              className="lamp-pull-body"
+              d="M0 2.2C2.4 2.2 3.1 5.4 3.1 7.4A3.1 3.1 0 0 1-3.1 7.4C-3.1 5.4-2.4 2.2 0 2.2Z"
+            />
+            <path className="lamp-pull-crease" d="M-2.2 4.6C-0.8 5.2 0.8 5.2 2.2 4.6" />
+          </g>
+        </g>
+        {/* Nearer the reader than the lamp, clock, and cord: whatever lifts off the book. */}
+        <g id="desk-above" ref={aboveRef} />
+        <g ref={restRef} />
+      </svg>
+      {/* Keep one-second clock updates from repainting the desk and its shadow. */}
+      <svg
+        className="iso-svg clock-layer"
+        viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`}
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
           <FlipClockDefs />
         </defs>
-        {DESK_PARTS.map((part, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: the parts are a fixed painter's order
-          <PartView key={index} part={part} />
-        ))}
-        <FlipClock remainingMs={remainingMs} motion={motion} />
-        <path ref={cordRef} className="lamp-cord" />
-        <g ref={pullRef} className="lamp-pull">
-          <path className="lamp-pull-body" d="M-0.9 0H0.9L1.1 2.2H-1.1Z" />
-          <path
-            className="lamp-pull-body"
-            d="M0 2.2C2.4 2.2 3.1 5.4 3.1 7.4A3.1 3.1 0 0 1-3.1 7.4C-3.1 5.4-2.4 2.2 0 2.2Z"
-          />
-          <path className="lamp-pull-crease" d="M-2.2 4.6C-0.8 5.2 0.8 5.2 2.2 4.6" />
+        <g id="desk-clock">
+          <FlipClock remainingMs={remainingMs} motion={motion} />
         </g>
       </svg>
       <button
@@ -326,6 +297,8 @@ export function Desk({ remainingMs, motion }: DeskProps) {
         aria-label={lit ? 'Turn the lamp off (dark mode)' : 'Turn the lamp on (light mode)'}
       />
       <span ref={zoneRef} className="lamp-cord-zone" style={cordZoneStyle} aria-hidden="true" />
+      <Envelope motion={motion} quote={quote} />
+      <Magnifier motion={motion} controls={sceneRef} rest={restRef} />
     </div>
   );
 }

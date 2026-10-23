@@ -3,7 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CORD } from './cord';
 import { Desk } from './Desk';
 import { CORD_ANCHOR } from './desk-geometry';
+import { drawingAt } from './envelope-pose';
+import { magnifierDrawingAt } from './magnifier-geometry';
 import { preferReducedMotion, render } from './test-render';
+
+vi.mock('./envelope-pose', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./envelope-pose')>();
+  return { ...actual, drawingAt: vi.fn(actual.drawingAt) };
+});
+
+vi.mock('./magnifier-geometry', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./magnifier-geometry')>();
+  return { ...actual, magnifierDrawingAt: vi.fn(actual.magnifierDrawingAt) };
+});
 
 let cleanup: (() => void) | undefined;
 
@@ -21,8 +33,8 @@ afterEach(() => {
   delete document.documentElement.dataset.colorScheme;
 });
 
-function showDesk(pointerType = 'mouse') {
-  const view = render(<Desk remainingMs={100_000} motion="full" />);
+function showDesk(pointerType = 'mouse', motion: 'full' | 'reduced' = 'full') {
+  const view = render(<Desk remainingMs={100_000} motion={motion} quote={undefined} />);
   cleanup = view.unmount;
   const svg = view.container.querySelector('svg');
   const zone = view.container.querySelector<HTMLSpanElement>('.lamp-cord-zone');
@@ -95,5 +107,41 @@ describe('Desk cord', () => {
     pointer('pointerup', CORD.switchAt * 4);
     click();
     expect(document.documentElement.dataset.colorScheme).toBe('dark');
+  });
+
+  it('switches without swinging the cord when the reader prefers reduced motion', () => {
+    const { pointer, click, pullY } = showDesk('mouse', 'reduced');
+    const restingY = pullY();
+
+    click();
+    act(() => vi.advanceTimersByTime(100));
+    expect(document.documentElement.dataset.colorScheme).toBe('dark');
+    expect(pullY()).toBe(restingY);
+
+    pointer('pointerdown');
+    pointer('pointermove', CORD.switchAt * 3);
+    expect(document.documentElement.dataset.colorScheme).toBe('light');
+    pointer('pointerup', CORD.switchAt * 3);
+    expect(pullY()).toBe(restingY);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(pullY()).toBe(restingY);
+  });
+});
+
+describe('Desk countdown', () => {
+  it('ticks the clock without rebuilding the envelope or magnifier', () => {
+    const desk = (remainingMs: number) => (
+      <Desk remainingMs={remainingMs} motion="full" quote={undefined} />
+    );
+    const view = render(desk(100_000));
+    cleanup = view.unmount;
+    vi.mocked(drawingAt).mockClear();
+    vi.mocked(magnifierDrawingAt).mockClear();
+
+    view.rerender(desk(99_000));
+    view.rerender(desk(98_000));
+
+    expect(drawingAt).not.toHaveBeenCalled();
+    expect(magnifierDrawingAt).not.toHaveBeenCalled();
   });
 });

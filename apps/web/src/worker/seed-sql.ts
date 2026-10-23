@@ -1,11 +1,6 @@
 import type { CollectionEntry } from '@somequote/content';
 
-/**
- * SQL that makes the `quotes` table match the curated collection. Safe to run any number of times:
- * quotes are upserted by id, and quotes no longer in the collection are disabled rather than
- * deleted, so publication history keeps its references. A quote's category never changes; a
- * conflicting edit fails the table's CHECK constraint instead of silently rewriting history.
- */
+/** Removed quotes are disabled, not deleted, because publication history references them. */
 export function seedStatements(collection: readonly CollectionEntry[]): string[] {
   const upserts = collection.map(({ quote, enabled }) => {
     const attribution =
@@ -24,6 +19,6 @@ ON CONFLICT (id) DO UPDATE SET
 }
 
 /** Seed files are executed by Wrangler, which takes plain SQL, so values are written as literals. */
-export function sqlLiteral(value: string | null): string {
+function sqlLiteral(value: string | null): string {
   return value === null ? 'NULL' : `'${value.replaceAll("'", "''")}'`;
 }

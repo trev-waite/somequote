@@ -16,11 +16,26 @@ export function parseQuoteId(value: string): QuoteId {
   return value;
 }
 
+export const QUOTE_TEXT_MAX_LENGTH = 360;
+const ATTRIBUTION_MAX_LENGTH = 80;
+
+/** Control, format (bidi overrides, zero-width), private-use, and line or paragraph separators. */
+const HIDDEN_CHARACTER = /[\p{C}\p{Zl}\p{Zp}]/u;
+
+export function isQuoteText(value: string): boolean {
+  return (
+    value.length <= QUOTE_TEXT_MAX_LENGTH && !HIDDEN_CHARACTER.test(value.replaceAll('\n', ''))
+  );
+}
+
+export function isAttributionText(value: string): boolean {
+  return value.length <= ATTRIBUTION_MAX_LENGTH && !HIDDEN_CHARACTER.test(value);
+}
+
 export function isCategory(value: string): value is Category {
   return (CATEGORIES as readonly string[]).includes(value);
 }
 
-/** A saying attributed to a person, taken from a named work, speech, or letter. */
 export interface GeneralQuote {
   readonly category: 'general';
   readonly id: QuoteId;
@@ -29,7 +44,6 @@ export interface GeneralQuote {
   readonly source: string;
 }
 
-/** An exact excerpt of scripture in a named translation, cited by reference instead of author. */
 export interface BibleVerse {
   readonly category: 'bible';
   readonly id: QuoteId;

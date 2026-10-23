@@ -4,16 +4,21 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && bun scripts/secure-html.ts && bun scripts/check-build.ts",
     "preview": "vite preview",
     "typecheck": "wrangler types --check && tsc -b",
     "types": "wrangler types",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "benchmark": "playwright test --config playwright.benchmark.config.ts",
     "db:migrate:local": "wrangler d1 migrations apply somequote --local",
     "db:migrate:remote": "wrangler d1 migrations apply somequote --remote",
     "db:seed:local": "bun scripts/seed.ts --local",
     "db:seed:remote": "bun scripts/seed.ts --remote",
-    "deploy": "vite build && wrangler deploy"
+    "zone:plan": "bun scripts/configure-zone.ts",
+    "zone:apply": "bun scripts/configure-zone.ts --apply",
+    "deploy": "bun run build && wrangler deploy",
+    "smoke": "bun scripts/smoke.ts"
   },
   "dependencies": {
     "@somequote/domain": "workspace:*",
@@ -24,16 +29,17 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.64.0",
-    "@cloudflare/vitest-plugin": "1.4.4",
+    "@cloudflare/vitest-plugin": "1.4.6",
+    "@playwright/test": "1.64.1",
     "@somequote/content": "workspace:*",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
-    "happy-dom": "21.0.3",
+    "happy-dom": "21.0.4",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
+    "vite": "8.3.5",
     "vitest": "5.0.5",
-    "wrangler": "4.151.1"
+    "wrangler": "4.151.3"
   }
 }

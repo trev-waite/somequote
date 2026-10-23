@@ -6,11 +6,10 @@ import type { Motion } from './reveal';
 
 const { card } = CLOCK_FACE;
 const HINGE = card.height / 2;
-const DIGIT_SIZE = 17;
+const DIGIT_SIZE = card.height * 0.74;
 /** Instrument Serif's figures sit this far below the middle of the em box. */
 const DIGIT_BASELINE = HINGE + DIGIT_SIZE * 0.34;
 
-/** The flap falls under gravity for `fallMs`, then slaps down and bounces twice in `settleMs`. */
 const FLIP = { fallMs: 300, settleMs: 190, bounceDegrees: 11, shade: 0.5 } as const;
 
 const RADIANS = Math.PI / 180;
@@ -22,10 +21,6 @@ function originOf(x: number, y: number): Vec3 {
   );
 }
 
-/**
- * The matrix for a half card turned `degrees` about the hinge across the card's middle. The top
- * half swings out toward the reader as it falls; the bottom half lands from the same direction.
- */
 function flapMatrix(cardOrigin: Vec3, half: 'top' | 'bottom', degrees: number): string {
   const { v, normal } = CLOCK_FACE;
   const out = half === 'top' ? -1 : 1;
@@ -37,7 +32,6 @@ function flapMatrix(cardOrigin: Vec3, half: 'top' | 'bottom', degrees: number): 
   return planeMatrix(vec.add(hinge, vec.scale(turned, -HINGE)), CLOCK_FACE.u, turned);
 }
 
-/** Flap angle from flat-on-top (0°) to flat-on-the-bottom (180°), plus the bounce after landing. */
 export function flapAngle(elapsedMs: number): { degrees: number; done: boolean } {
   if (elapsedMs < FLIP.fallMs) {
     const p = elapsedMs / FLIP.fallMs;
@@ -72,11 +66,6 @@ interface FlipCardProps {
   readonly motion: Motion;
 }
 
-/**
- * One split-flap card. React draws its layers once; each change of `value` then plays imperatively:
- * the old top half falls toward the reader, revealing the new top, and the new bottom lands over the
- * old bottom with a small bounce.
- */
 function FlipCard({ x, y, value, motion }: FlipCardProps) {
   const [initial] = useState(value);
   const shown = useRef(value);
@@ -185,7 +174,6 @@ function FlipCard({ x, y, value, motion }: FlipCardProps) {
   );
 }
 
-/** Clip paths and the dark window the cards sit in, in the clock face's own units. */
 export function FlipClockDefs() {
   return (
     <>
@@ -199,7 +187,6 @@ export function FlipClockDefs() {
   );
 }
 
-/** The flip clock's face: hours, minutes and seconds until the next quote, one card each. */
 export function FlipClock({ remainingMs, motion }: { remainingMs: number; motion: Motion }) {
   const { hours, minutes, seconds } = countdownParts(remainingMs);
   const values = [hours, minutes, seconds].map((part) => String(part).padStart(2, '0'));

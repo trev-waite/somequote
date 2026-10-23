@@ -2,7 +2,6 @@ import {
   addDays,
   ensurePublication,
   NoEligibleQuoteError,
-  nextPublicationAt,
   type Publication,
   publicationDateAt,
   type QuoteRepository,
@@ -17,67 +16,101 @@ import {
   HistoryQuery,
   type PublicationDto,
 } from '../shared/api-contract';
+import { publicationResponse } from './publication-cache';
 
-export interface AppDependencies {
+interface AppDependencies {
   readonly repositoryFor: (env: Env) => QuoteRepository;
   readonly now: () => Date;
   readonly random: Random;
+  readonly cacheFor?: () => Cache;
 }
 
 type AppContext = Context<{ Bindings: Env }>;
 
-/** Responses may be cached until the next publication, but never longer than this. */
-const MAX_CACHE_SECONDS = 60 * 60;
-
-export function createApp({ repositoryFor, now, random }: AppDependencies) {
+export function createApp({ repositoryFor, now, random, cacheFor }: AppDependencies) {
   const app = new Hono<{ Bindings: Env }>().basePath('/api');
 
   app.use(
     secureHeaders({
       contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
-      strictTransportSecurity: 'max-age=31536000',
+      strictTransportSecurity: 'max-age=63072000; includeSubDomains',
       xFrameOptions: 'DENY',
     }),
   );
 
+  app.use(async (c, next) => {
+    const client = rateLimitClient(c.req.header('CF-Connecting-IP'));
+    const { success } = await c.env.API_RATE_LIMITER.limit({ key: `somequote:api:${client}` });
+    if (!success) {
+      c.header('Retry-After', '60');
+      return errorResponse(
+        c,
+        429,
+        'rate_limited',
+        'Too many requests. Please try again in a minute.',
+      );
+    }
+    return next();
+  });
+
   app.get('/quote/today', async (c) => {
     const at = now();
-    const publication = await ensurePublication({
-      repository: repositoryFor(c.env),
-      date: publicationDateAt(at),
-      random,
+    return publicationResponse({
+      url: c.req.url,
+      path: '/api/quote/today',
+      parameters: new URLSearchParams(),
+      at,
+      now,
+      cache: cacheFor?.(),
+      load: async () => {
+        const publication = await ensurePublication({
+          repository: repositoryFor(c.env),
+          date: publicationDateAt(at),
+          random,
+        });
+        return toPublicationDto(publication);
+      },
     });
-    const body: PublicationDto = toPublicationDto(publication);
-    return c.json(body, 200, cacheUntilNextPublication(at));
   });
 
   app.get('/quotes/history', async (c) => {
-    const query = HistoryQuery.safeParse(c.req.query());
-    if (!query.success) {
+    const { limit: limits = [], before: dates = [] } = c.req.queries();
+    const query = HistoryQuery.safeParse({ limit: limits[0], before: dates[0] });
+    if (limits.length > 1 || dates.length > 1 || !query.success) {
       return errorResponse(
         c,
         400,
         'invalid_request',
-        'Use limit between 1 and 30 and before as a YYYY-MM-DD date.',
+        'Use limit once as 1–3 decimal digits between 1 and 30, and before once as a YYYY-MM-DD date.',
       );
     }
     const { limit, before } = query.data;
     const at = now();
     const today = publicationDateAt(at);
-    const repository = repositoryFor(c.env);
-    await ensurePublication({ repository, date: today, random });
-
     const tomorrow = addDays(today, 1);
-    const page = await repository.listPublications({
-      before: before !== undefined && before < tomorrow ? before : tomorrow,
-      limit: limit + 1,
+    const effectiveBefore = before !== undefined && before < tomorrow ? before : tomorrow;
+    return publicationResponse({
+      url: c.req.url,
+      path: '/api/quotes/history',
+      parameters: new URLSearchParams({ limit: String(limit), before: effectiveBefore }),
+      at,
+      now,
+      cache: cacheFor?.(),
+      load: async () => {
+        const repository = repositoryFor(c.env);
+        await ensurePublication({ repository, date: today, random });
+        const page = await repository.listPublications({
+          before: effectiveBefore,
+          limit: limit + 1,
+        });
+        const items = page.slice(0, limit);
+        const body: HistoryDto = {
+          items: items.map(toPublicationDto),
+          nextBefore: page.length > limit ? (items.at(-1)?.date ?? null) : null,
+        };
+        return body;
+      },
     });
-    const items = page.slice(0, limit);
-    const body: HistoryDto = {
-      items: items.map(toPublicationDto),
-      nextBefore: page.length > limit ? (items.at(-1)?.date ?? null) : null,
-    };
-    return c.json(body, 200, cacheUntilNextPublication(at));
   });
 
   app.notFound((c) => errorResponse(c, 404, 'not_found', 'There is nothing at this address.'));
@@ -97,6 +130,29 @@ export function createApp({ repositoryFor, now, random }: AppDependencies) {
   });
 
   return app;
+}
+
+/**
+ * The rate limit bucket for a client address. One IPv6 host usually controls a whole /64 and can
+ * rotate through it freely, so IPv6 addresses share a bucket per /64 prefix.
+ */
+export function rateLimitClient(ip: string | undefined): string {
+  if (!ip) return 'unknown';
+  if (!ip.includes(':')) return ip;
+  if (ip.includes('.')) return ip.slice(ip.lastIndexOf(':') + 1);
+  const [head = '', tail] = ip.toLowerCase().split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const groups =
+    tail === undefined
+      ? left
+      : [
+          ...left,
+          ...Array<string>(Math.max(0, 8 - left.length - right.length)).fill('0'),
+          ...right,
+        ];
+  const prefix = groups.slice(0, 4).map((group) => group.replace(/^0+(?=.)/, ''));
+  return `${prefix.join(':')}::/64`;
 }
 
 function toPublicationDto({ date, quote }: Publication): PublicationDto {
@@ -124,11 +180,6 @@ function toPublicationDto({ date, quote }: Publication): PublicationDto {
         },
       };
   }
-}
-
-function cacheUntilNextPublication(at: Date): Record<string, string> {
-  const secondsLeft = Math.floor((nextPublicationAt(at).getTime() - at.getTime()) / 1000);
-  return { 'Cache-Control': `public, max-age=${Math.min(secondsLeft, MAX_CACHE_SECONDS)}` };
 }
 
 function errorResponse(

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuses to push commits that add credentials (tools/secret-scan). Enable once per clone with
+# `bun run hooks:install`. CI runs the same scan, but by then the secret has already left this machine.
+zero=0000000000000000000000000000000000000000
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # deleting a remote branch
+  # A new branch, or a remote commit this clone doesn't have: scan all of the pushed history.
+  git cat-file -e "$remote_sha^{commit}" 2>/dev/null || remote_sha=""
+  bun tools/secret-scan/src/cli.ts "$remote_sha" "$local_sha" || exit 1
+done

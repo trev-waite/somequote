@@ -1,11 +1,6 @@
 import type { PublicationDate } from './publication-clock';
 import { CATEGORIES, type Category, type QuoteId } from './quote';
 
-/**
- * Slots per rotation. Each non-overlapping block of `ROTATION_LENGTH` publications holds this
- * many quotes of each category, in random order, so the published mix stays at 80/20 without a
- * predictable pattern. A rotation is derived from publication history, so no extra state is kept.
- */
 export const ROTATION: Readonly<Record<Category, number>> = { general: 4, bible: 1 };
 
 export const ROTATION_LENGTH = CATEGORIES.reduce(
@@ -21,14 +16,11 @@ export interface QuoteUsage {
 }
 
 export interface SelectionSnapshot {
-  /** Every enabled quote, with usage derived from publication history. */
   readonly candidates: readonly QuoteUsage[];
   readonly publishedCount: number;
-  /** Categories of the latest publications, newest first. At least `ROTATION_LENGTH - 1` when available. */
   readonly recentCategories: readonly Category[];
 }
 
-/** Returns a float in [0, 1), like `Math.random`. */
 export type Random = () => number;
 
 type NonEmpty<T> = readonly [T, ...T[]];
@@ -38,13 +30,6 @@ interface CategoryPool {
   readonly quotes: NonEmpty<QuoteUsage>;
 }
 
-/**
- * Picks the next quote to publish, or `null` when no quote is enabled.
- *
- * 1. Category: a random open slot in the current rotation. If every open slot belongs to a category
- *    with no enabled quotes, the configured mix applies among the categories that have quotes.
- * 2. Quote: the least published in that category, then the least recently published, then random.
- */
 export function selectQuote(snapshot: SelectionSnapshot, random: Random): QuoteId | null {
   const pools = poolsByCategory(snapshot.candidates);
   if (!isNonEmpty(pools)) return null;

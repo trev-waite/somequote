@@ -5,7 +5,8 @@
   "packageManager": "bun@1.4.3",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tools/*"
   ],
   "scripts": {
     "dev": "turbo run dev",
@@ -14,13 +15,18 @@
     "format": "biome check --write .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:e2e": "turbo run build && bun run --cwd apps/web test:e2e",
+    "benchmark:browser": "turbo run build && bun run --cwd apps/web benchmark",
     "preview": "turbo run preview",
     "db:migrate:local": "bun run --cwd apps/web db:migrate:local",
     "db:seed:local": "bun run --cwd apps/web db:seed:local",
-    "content:verify-sources": "bun run --cwd packages/content verify-sources"
+    "content:verify-sources": "bun run --cwd packages/content verify-sources",
+    "scan:secrets": "bun tools/secret-scan/src/cli.ts",
+    "audit:dependencies": "bun tools/dependency-audit/src/cli.ts",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
-    "turbo": "2.11.9"
+    "@biomejs/biome": "2.6.2",
+    "turbo": "2.11.10"
   }
 }

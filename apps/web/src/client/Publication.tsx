@@ -11,8 +11,7 @@ export function attributionOf(quote: QuoteDto): { primary: string; secondary: st
   }
 }
 
-/** Shorter quotes are set larger; the thresholds keep most quotes to two to five lines. */
-export function lengthClass(text: string): 'short' | 'medium' | 'long' {
+function lengthClass(text: string): 'short' | 'medium' | 'long' {
   if (text.length <= 80) return 'short';
   if (text.length <= 170) return 'medium';
   return 'long';

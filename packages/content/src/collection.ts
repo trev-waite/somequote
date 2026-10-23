@@ -7,7 +7,6 @@ export interface CollectionEntry {
   readonly enabled: boolean;
 }
 
-/** The curated collection in domain form. The seed makes the database match it. */
 export const COLLECTION: readonly CollectionEntry[] = [
   ...GENERAL_QUOTES.map(
     (entry): CollectionEntry => ({

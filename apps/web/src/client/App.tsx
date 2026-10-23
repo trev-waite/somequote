@@ -1,14 +1,14 @@
 import type { fetchTodayPublication } from './api';
 import { formatCountdown, useCountdown } from './countdown';
-import { Desk } from './Desk';
+import { DeferredDesk } from './DeferredDesk';
 import { Logo } from './Logo';
 import { PublicationView } from './Publication';
 import { usePrefersReducedMotion, useTodayPublication } from './today';
 
 export function App({ load }: { load?: typeof fetchTodayPublication }) {
-  const { state, retry } = useTodayPublication(load);
+  const { state, retry, rollOver } = useTodayPublication(load);
   const reducedMotion = usePrefersReducedMotion();
-  const remaining = useCountdown(retry);
+  const remaining = useCountdown(rollOver);
 
   return (
     <div className="page">
@@ -22,6 +22,7 @@ export function App({ load }: { load?: typeof fetchTodayPublication }) {
           <main className="page-main" aria-busy={state.kind === 'loading'}>
             {state.kind === 'ready' && (
               <PublicationView
+                key={state.publication.date}
                 publication={state.publication}
                 motion={reducedMotion ? 'reduced' : 'full'}
               />
@@ -38,10 +39,13 @@ export function App({ load }: { load?: typeof fetchTodayPublication }) {
           <div className="page-footer" aria-hidden="true" />
         </div>
       </div>
-      <aside className="scene scene-lamp" aria-label="Desk lamp and the next quote">
-        <div className="lamp-stage">
-          <Desk remainingMs={remaining} motion={reducedMotion ? 'reduced' : 'full'} />
-        </div>
+      <aside className="scene scene-lamp" aria-label="Desk lamp, the next quote, and sharing">
+        <DeferredDesk
+          ready={state.kind !== 'loading'}
+          remainingMs={remaining}
+          motion={reducedMotion ? 'reduced' : 'full'}
+          quote={state.kind === 'ready' ? state.publication.quote : undefined}
+        />
         <p className="visually-hidden" role="timer">
           {formatCountdown(remaining)} until the next quote
         </p>

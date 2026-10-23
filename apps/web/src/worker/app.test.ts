@@ -15,6 +15,8 @@ import {
 } from './test-support';
 
 let clock = new Date('2026-10-18T16:00:00Z');
+/** Each request comes from its own address, so these tests never meet the real rate limiter. */
+let requestNumber = 0;
 
 function appAt(
   instant: string,
@@ -26,7 +28,10 @@ function appAt(
 }
 
 async function get(app: ReturnType<typeof createApp>, path: string, init?: RequestInit) {
-  const response = await app.request(path, init, env);
+  const headers = new Headers(init?.headers);
+  requestNumber++;
+  headers.set('CF-Connecting-IP', `10.0.${requestNumber >> 8}.${requestNumber & 255}`);
+  const response = await app.request(path, { ...init, headers }, env);
   return { response, body: (await response.json()) as unknown };
 }
 
