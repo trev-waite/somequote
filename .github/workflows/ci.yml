@@ -1,12 +1,13 @@
 name: CI/CD
 
-# Pull requests run every check. A merge to main runs them again on the merged result, then
-# deploys the exact build that passed them. Zone settings deploy separately (zone.yml), and
-# secret scanning runs on every push without path filters (secrets.yml).
+# Pull requests run every check, with no path filters: main's ruleset requires these checks, so
+# a skipped run would leave a docs-only PR unmergeable. A merge to main runs them again on the
+# merged result, then deploys the exact build that passed them; a Markdown-only merge doesn't
+# redeploy. Zone settings deploy separately (zone.yml), and secret scanning runs on every push
+# without path filters (secrets.yml).
 on:
   pull_request:
     branches: [main]
-    paths-ignore: ['**/*.md']
   push:
     branches: [main]
     paths-ignore: ['**/*.md']
