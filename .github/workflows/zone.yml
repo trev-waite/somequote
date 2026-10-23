@@ -89,7 +89,7 @@ jobs:
           expect() {
             host="$(echo "$1" | cut -d/ -f3)"
             for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
-              ip="$(dig +short "@$ns" "$host" A | head -n1)"
+              ip="$(dig +short "@$ns" "$host" A | grep -E '^[0-9.]+$' | head -n1)"
               result="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
                 --resolve "$host:80:$ip" --resolve "$host:443:$ip" "$1" || true)"
               if [ "$result" = "$2" ]; then
@@ -103,7 +103,9 @@ jobs:
           }
           # The apex record is the Worker's custom domain, created by the first deploy (ci.yml), which
           # can finish after this workflow. The weekly drift check still requires it.
-          if [ -z "$(dig +short "@$ns" somequote.com A)" ] && [ "$EVENT" != schedule ]; then
+          apex="$(dig "@$ns" somequote.com A +noall +comments || true)"
+          if [ "$EVENT" != schedule ] && grep -qE 'status: (NOERROR|NXDOMAIN),' <<<"$apex" &&
+            grep -q 'ANSWER: 0,' <<<"$apex"; then
             echo "::warning::somequote.com has no DNS record until the first deploy attaches the Worker; skipped its check."
           else
             expect 'http://somequote.com/' '301 https://somequote.com/'
