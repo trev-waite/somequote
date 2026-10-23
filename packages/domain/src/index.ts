@@ -19,9 +19,12 @@ export {
   CATEGORIES,
   type Category,
   type GeneralQuote,
+  isAttributionText,
   isCategory,
   isQuoteId,
+  isQuoteText,
   parseQuoteId,
+  QUOTE_TEXT_MAX_LENGTH,
   type Quote,
   type QuoteId,
 } from './quote';

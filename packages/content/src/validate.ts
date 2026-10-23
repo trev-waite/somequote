@@ -1,8 +1,7 @@
-import { isQuoteId } from '@somequote/domain';
+import { isAttributionText, isQuoteId, QUOTE_TEXT_MAX_LENGTH } from '@somequote/domain';
 import type { BibleEntry } from './bible';
 import type { GeneralEntry } from './general';
 
-export const MAX_QUOTE_LENGTH = 360;
 const MIN_QUOTE_LENGTH = 16;
 const MAX_QUOTE_LINES = 8;
 
@@ -33,6 +32,7 @@ export function findContentProblems({ general, bible }: ContentEntries): string[
     ] as const) {
       if (value.trim() !== value || value.length === 0)
         report(entry.id, `${field} must be trimmed text`);
+      if (!isAttributionText(value)) report(entry.id, `${field} must be short, visible text`);
       if (/['"]/.test(value)) report(entry.id, `${field} must use typographic quotes`);
     }
   }
@@ -51,8 +51,8 @@ export function findContentProblems({ general, bible }: ContentEntries): string[
 
 function textProblems(text: string): string[] {
   const problems: string[] = [];
-  if (text.length < MIN_QUOTE_LENGTH || text.length > MAX_QUOTE_LENGTH) {
-    problems.push(`text must be ${MIN_QUOTE_LENGTH}–${MAX_QUOTE_LENGTH} characters`);
+  if (text.length < MIN_QUOTE_LENGTH || text.length > QUOTE_TEXT_MAX_LENGTH) {
+    problems.push(`text must be ${MIN_QUOTE_LENGTH}–${QUOTE_TEXT_MAX_LENGTH} characters`);
   }
   if (text.split('\n').length > MAX_QUOTE_LINES)
     problems.push(`text must fit in ${MAX_QUOTE_LINES} lines`);

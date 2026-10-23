@@ -57,6 +57,8 @@ describe('editorial rules', () => {
     ['an overlong text', { text: `${'Long words. '.repeat(40)}End.` }, 'characters'],
     ['an invalid id', { id: 'Not An Id' }, 'id must be'],
     ['an empty author', { author: '' }, 'author must be trimmed'],
+    ['an overlong source', { source: 'Essays '.repeat(12).trim() }, 'source must be short'],
+    ['a bidi override in the author', { author: 'Ralph\u202EWaldo' }, 'author must be short'],
   ])('rejects %s', (_, override, expected) => {
     const problems = problemsFor({ general: [{ ...validGeneral, ...override }] });
     expect(problems.join('\n')).toContain(expected);
