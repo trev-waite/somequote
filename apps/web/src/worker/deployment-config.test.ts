@@ -45,6 +45,13 @@ describe('deployment configuration', () => {
     expect(secretsWorkflow).not.toMatch(/^\s*concurrency:/m);
   });
 
+  it('reports the required checks on every pull request, with no path filters to skip one', () => {
+    const pullRequestTrigger = /^ {2}pull_request:\n((?: {4}.+\n)+)/m.exec(ciWorkflow)?.[1];
+
+    expect(pullRequestTrigger).toMatch(/branches: \[main\]/);
+    expect(pullRequestTrigger).not.toMatch(/paths(?:-ignore)?:/);
+  });
+
   it('reads the Cloudflare secrets only through the main-only prod environment', () => {
     const deployJob = ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'));
 
