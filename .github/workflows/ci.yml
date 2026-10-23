@@ -82,18 +82,14 @@ jobs:
       - name: Lint and formatting
         run: bunx biome ci --reporter=github .
 
-      # PR-only, like the source check below: advisories and source sites change without a
-      # code change, and neither should block deploying a change that already passed review.
-      - name: Fail on fixable or critical vulnerabilities
-        if: github.event_name == 'pull_request'
-        run: bun run audit:dependencies
-
       - name: Typecheck
         run: bun run typecheck
 
       - name: Unit, D1, and component tests
         run: bun run test
 
+      # PR-only: source sites change without a code change, and shouldn't block deploying a
+      # change that already passed review.
       - name: Restore cited source texts
         if: github.event_name == 'pull_request' && steps.range.outputs.content != 'unchanged'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -104,6 +100,27 @@ jobs:
       - name: Verify quotes against their sources
         if: github.event_name == 'pull_request' && steps.range.outputs.content != 'unchanged'
         run: bun run content:verify-sources
+
+  dependencies:
+    name: Dependency vulnerabilities
+    # PR-only, like the source check: advisories change without a code change, and shouldn't
+    # block deploying a change that already passed review.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Fail on fixable or critical vulnerabilities
+        run: bun run audit:dependencies
 
   build:
     name: Build and browser smoke tests
