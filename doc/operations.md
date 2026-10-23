@@ -18,7 +18,7 @@ After production passes its smoke test, CI publishes `v<version>` at the deploye
 
 An existing tag for a different commit blocks deployment before migrations; exact-commit retries are allowed. Stale or failed deployments publish no release. Worker rollback uses Cloudflare version IDs and doesn't undo D1 migrations or seeded content.
 
-If release publication fails after a healthy deployment, re-run only the failed release job. Releases record deployment history; check the `prod` environment or Cloudflare for the current live deployment.
+If release publication fails after a healthy deployment, re-run only the failed release job. GitHub can reject an older commit whose workflows differ from `main`; an owner must then create the missing tag at the deployed SHA using their own account before retrying. Releases record deployment history; check the `prod` environment or Cloudflare for the current live deployment.
 
 ## Zone configuration
 

@@ -390,7 +390,11 @@ jobs:
           jq -n --arg tag "$TAG" --arg sha "$GITHUB_SHA" --arg notes "$notes" \
             '{tag_name: $tag, target_commitish: $sha, name: $tag, body: $notes, generate_release_notes: true, make_latest: "legacy"}' \
             > "$RUNNER_TEMP/release.json"
-          url="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input "$RUNNER_TEMP/release.json" --jq .html_url)"
+          if ! url="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input "$RUNNER_TEMP/release.json" --jq .html_url)"; then
+            echo "::error::Production deployed successfully, but release $TAG could not be published."
+            echo "::notice::If GitHub rejects this older commit because its workflows differ from main, an owner must create tag $TAG at $GITHUB_SHA using their own account, then re-run only this release job (doc/operations.md, Release versions)."
+            exit 1
+          fi
           echo "### [$TAG]($url) deployed to [production](https://somequote.com)" >> "$GITHUB_STEP_SUMMARY"
         env:
           GH_TOKEN: ${{ github.token }}
