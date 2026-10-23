@@ -1,5 +1,5 @@
 # Workflow actions are pinned to commit SHAs and packages to exact versions, so updates arrive
-# only through these grouped monthly PRs, each of which runs the full CI.
+# only through Dependabot PRs (grouped monthly, plus security fixes), each of which runs the full CI.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -10,10 +10,13 @@ updates:
       actions:
         patterns: ['*']
 
+  # Security fixes open PRs only for packages in package.json. Transitive ones still raise alerts.
   - package-ecosystem: bun
     directory: /
     schedule:
       interval: monthly
+    allow:
+      - dependency-type: direct
     groups:
       minor-and-patch:
         update-types: [minor, patch]
