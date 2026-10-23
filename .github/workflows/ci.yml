@@ -80,6 +80,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Validate the reviewed release version
+        run: bun run release:check
+        env:
+          RELEASE_BASE_REF: ${{ steps.range.outputs.base }}
+
       - name: Lint and formatting
         run: bunx biome ci --reporter=github .
 
@@ -202,6 +207,8 @@ jobs:
     concurrency:
       group: production
       cancel-in-progress: false
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     defaults:
       run:
         working-directory: apps/web
@@ -230,6 +237,7 @@ jobs:
         if: steps.fresh.outputs.current == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Bun
@@ -241,6 +249,14 @@ jobs:
       - name: Install pinned Wrangler
         if: steps.fresh.outputs.current == 'true'
         run: bun install --frozen-lockfile
+
+      - name: Require an unused version or the exact previously released commit
+        if: steps.fresh.outputs.current == 'true'
+        id: version
+        working-directory: .
+        run: |
+          bun run release:check
+          echo "tag=v$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
       - name: Download the tested build
         if: steps.fresh.outputs.current == 'true'
@@ -303,8 +319,9 @@ jobs:
         run: |
           message="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1 | cut -c 1-100)"
           bunx wrangler deploy --config dist/worker/wrangler.json \
-            --message "${message:-Deploy ${GITHUB_SHA}}" --tag "${GITHUB_SHA::12}"
+            --message "${TAG} ${GITHUB_SHA::12}: ${message:-Production deploy}" --tag "$TAG"
         env:
+          TAG: ${{ steps.version.outputs.tag }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -314,8 +331,7 @@ jobs:
         id: smoke
         run: bun run smoke https://somequote.com
 
-      # At most one rollback per run, and it can't start another: no step in any workflow pushes,
-      # dispatches, or redeploys, and the token is read-only (deployment-config.test.ts checks this).
+      # At most one rollback per run; the deploy job's GitHub token is read-only.
       # Migrations are append-only, so the previous version still runs against the new schema.
       - name: Roll back a failed deploy
         if: failure() && steps.smoke.outcome == 'failure' && steps.previous.outputs.version != ''
@@ -340,3 +356,43 @@ jobs:
           fi
         env:
           VERSION: ${{ steps.previous.outputs.version }}
+
+  release:
+    name: Release the verified production deployment
+    if: needs.deploy.outputs.tag != ''
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the deployed commit and release tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Publish the GitHub release
+        run: |
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            tagged="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+            if [ "$tagged" != "$GITHUB_SHA" ]; then
+              echo "::error::$TAG belongs to $tagged, not deployed commit $GITHUB_SHA."
+              exit 1
+            fi
+          fi
+          released="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[].tag_name')"
+          if grep -Fxq "$TAG" <<< "$released"; then
+            echo "Release $TAG already exists for $GITHUB_SHA."
+            exit 0
+          fi
+          notes="$(printf 'Verified deployment to https://somequote.com through the `prod` environment.\n\nCommit: %s\nActions run: %s/%s/actions/runs/%s\nCloudflare version tag: `%s`' \
+            "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$TAG")"
+          jq -n --arg tag "$TAG" --arg sha "$GITHUB_SHA" --arg notes "$notes" \
+            '{tag_name: $tag, target_commitish: $sha, name: $tag, body: $notes, generate_release_notes: true, make_latest: "legacy"}' \
+            > "$RUNNER_TEMP/release.json"
+          url="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input "$RUNNER_TEMP/release.json" --jq .html_url)"
+          echo "### [$TAG]($url) deployed to [production](https://somequote.com)" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.deploy.outputs.tag }}

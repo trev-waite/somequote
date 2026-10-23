@@ -60,6 +60,14 @@
         "vitest": "5.0.5",
       },
     },
+    "tools/release": {
+      "name": "@somequote/release",
+      "devDependencies": {
+        "@types/node": "26.6.5",
+        "typescript": "7.0.2",
+        "vitest": "5.0.5",
+      },
+    },
     "tools/secret-scan": {
       "name": "@somequote/secret-scan",
       "devDependencies": {
@@ -275,6 +283,8 @@
     "@somequote/dependency-audit": ["@somequote/dependency-audit@workspace:tools/dependency-audit"],
 
     "@somequote/domain": ["@somequote/domain@workspace:packages/domain"],
+
+    "@somequote/release": ["@somequote/release@workspace:tools/release"],
 
     "@somequote/secret-scan": ["@somequote/secret-scan@workspace:tools/secret-scan"],
 

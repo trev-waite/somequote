@@ -39,8 +39,11 @@ curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+4+*+*+*"
 | `bun run db:migrate:local` / `db:seed:local` | Apply migrations / upsert the collection into the local database |
 | `bun run hooks:install` / `scan:secrets` | Enables the pre-push secret scan (once per clone) / scans the whole history |
 | `bun run audit:dependencies` | Fails on any vulnerability that upgrading a direct dependency would fix, and on any critical one |
+| `bun run release:check` | Validates the app's release version and rejects tag collisions |
 
 Before opening a PR, run `bun run lint && bun run typecheck && bun run test && bun run test:e2e`. Install the Playwright browsers once with `cd apps/web && bunx playwright install chromium webkit`.
+
+For a PR with non-Markdown changes, increase the root app version with `bun pm version patch --no-git-tag-version` (or `minor` / `major`). A healthy production deployment publishes that version as a GitHub release; see [release versions](doc/operations.md#release-versions) for checks and recovery.
 
 ## Layout
 
@@ -59,6 +62,7 @@ apps/web                the deployable Worker
   migrations            D1 schema; constraints and triggers enforce the invariants
 tools/secret-scan       dependency-free credential scanner for CI and the pre-push hook
 tools/dependency-audit  CI check for fixable or critical dependency vulnerabilities
+tools/release           reviewed app version and release-tag checks
 ```
 
 ## Content

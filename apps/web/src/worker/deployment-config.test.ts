@@ -8,6 +8,10 @@ import wranglerConfig from '../../wrangler.jsonc?raw';
 import { createApp } from './api/app';
 import { D1QuoteRepository } from './db/d1-quote-repository';
 
+const releaseJob = ciWorkflow.slice(ciWorkflow.indexOf('\n  release:'));
+const deploymentWorkflow = ciWorkflow.slice(0, ciWorkflow.indexOf('\n  release:'));
+const deployJob = deploymentWorkflow.slice(deploymentWorkflow.indexOf('\n  deploy:'));
+
 describe('deployment configuration', () => {
   it('serves only on the custom domain, where the zone forces HTTPS and applies WAF rules', () => {
     expect(wranglerConfig).toMatch(/"pattern":\s*"somequote\.com",\s*"custom_domain":\s*true/);
@@ -29,10 +33,10 @@ describe('deployment configuration', () => {
   });
 
   it.each([
-    ['ci.yml', ciWorkflow],
+    ['ci.yml deployment', deploymentWorkflow],
     ['secrets.yml', secretsWorkflow],
     ['zone.yml', zoneWorkflow],
-  ])('%s cannot start another run, so a rollback can never loop', (_, workflow) => {
+  ])('%s has a read-only token, so a rollback cannot start another run', (_, workflow) => {
     expect(workflow).toMatch(/^permissions:\n {2}contents: read$/m);
     expect(workflow).not.toMatch(/:\s*write\b|write-all/);
     expect(workflow).not.toMatch(/git push|gh workflow run|\/dispatches|repository_dispatch/);
@@ -53,14 +57,12 @@ describe('deployment configuration', () => {
   });
 
   it('reads the Cloudflare secrets only through the main-only prod environment', () => {
-    const deployJob = ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'));
-
     expect(deployJob).toMatch(/^ {4}environment:\n {6}name: prod$/m);
     expect(zoneWorkflow).toMatch(/^ {4}environment: prod$/m);
   });
 
   it.each([
-    ['ci.yml deploy', ciWorkflow.slice(ciWorkflow.indexOf('\n  deploy:'))],
+    ['ci.yml deploy', deployJob],
     ['zone.yml zone', zoneWorkflow.slice(zoneWorkflow.indexOf('\n  zone:'))],
   ])(
     '%s keeps the Cloudflare secrets out of dependency installs and third-party actions',
@@ -82,5 +84,22 @@ describe('deployment configuration', () => {
     expect(deploys).toHaveLength(1);
     expect(rollbacks).toHaveLength(1);
     expect(rollbacks[0]?.index).toBeGreaterThan(deploys[0]?.index ?? Infinity);
+  });
+
+  it('publishes releases only after a successful production job, with no Cloudflare access', () => {
+    expect(releaseJob).toMatch(/^ {4}needs: deploy$/m);
+    expect(releaseJob).toMatch(/^ {4}if: needs\.deploy\.outputs\.tag != ''$/m);
+    expect(releaseJob).toMatch(/^ {4}permissions:\n {6}contents: write$/m);
+    expect(releaseJob).not.toMatch(/always\(\)|failure\(\)|secrets\.|environment:|wrangler/);
+    expect(releaseJob).not.toMatch(/git push|gh workflow run|\/dispatches|repository_dispatch/);
+  });
+
+  it('checks for version collisions before migrations and tags Cloudflare with the release version', () => {
+    expect(deployJob.indexOf('bun run release:check')).toBeLessThan(
+      deployJob.indexOf('bun run db:migrate:remote'),
+    );
+    expect(deployJob).toContain('--tag "$TAG"');
+    expect(deployJob).toMatch(/tag: \$\{\{ steps\.version\.outputs\.tag \}\}/);
+    expect(releaseJob).toMatch(/TAG: \$\{\{ needs\.deploy\.outputs\.tag \}\}/);
   });
 });
