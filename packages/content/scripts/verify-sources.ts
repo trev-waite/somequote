@@ -1,6 +1,6 @@
 /**
  * Downloads every cited source text and checks that each quote appears in it. Attested quotes,
- * documented public statements with no public-domain text, are listed for manual review instead.
+ * documented public statements with no public-domain text, are only counted.
  *
  * General quotes may differ from their source only typographically: curly versus straight quotes,
  * dashes, italics markers, translator brackets, line breaks, the case of the first letter, and the
