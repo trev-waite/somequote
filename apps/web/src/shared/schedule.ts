@@ -1,1 +1,1 @@
-export { nextPublicationAt } from '@somequote/domain';
+export { nextPublicationAt, publicationDateAt } from '@somequote/domain';

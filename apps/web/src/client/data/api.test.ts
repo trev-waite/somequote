@@ -126,29 +126,46 @@ describe('fetchTodayPublication', () => {
     await expect(fetchTodayPublication()).rejects.toThrow('status 504');
   });
 
-  it('takes the request started during page load once, then fetches', async () => {
-    const publication = {
+  describe('with a request started during page load', () => {
+    const today = {
       date: '2026-10-18',
       quote: { category: 'general', id: 'a', text: 'Hi.', author: 'A', source: 'B' },
     };
-    respondWith(publication);
-    window.todayResponse = Promise.resolve(Response.json(publication));
 
-    await expect(fetchTodayPublication()).resolves.toEqual(publication);
-    expect(fetch).not.toHaveBeenCalled();
-    await expect(fetchTodayPublication()).resolves.toEqual(publication);
-    expect(fetch).toHaveBeenCalledOnce();
-  });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-  it('fetches again when the page-load request failed', async () => {
-    const publication = {
-      date: '2026-10-18',
-      quote: { category: 'general', id: 'a', text: 'Hi.', author: 'A', source: 'B' },
-    };
-    respondWith(publication);
-    window.todayResponse = Promise.resolve(undefined);
+    it('takes it once, then fetches', async () => {
+      vi.useFakeTimers({ now: new Date('2026-10-18T16:00:00Z'), toFake: ['Date'] });
+      respondWith(today);
+      window.todayResponse = Promise.resolve(Response.json(today));
 
-    await expect(fetchTodayPublication()).resolves.toEqual(publication);
-    expect(fetch).toHaveBeenCalledOnce();
+      await expect(fetchTodayPublication()).resolves.toEqual(today);
+      expect(fetch).not.toHaveBeenCalled();
+      await expect(fetchTodayPublication()).resolves.toEqual(today);
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
+    it('fetches when it failed', async () => {
+      vi.useFakeTimers({ now: new Date('2026-10-18T16:00:00Z'), toFake: ['Date'] });
+      respondWith(today);
+      window.todayResponse = Promise.resolve(undefined);
+
+      await expect(fetchTodayPublication()).resolves.toEqual(today);
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
+    it('fetches a fresh quote when midnight passed after it was answered', async () => {
+      vi.useFakeTimers({ now: new Date('2026-10-18T04:00:01Z'), toFake: ['Date'] });
+      respondWith(today);
+      window.todayResponse = Promise.resolve(Response.json({ ...today, date: '2026-10-17' }));
+
+      await expect(fetchTodayPublication()).resolves.toEqual(today);
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(
+        '/api/quote/today',
+        expect.objectContaining({ cache: 'reload' }),
+      );
+    });
   });
 });

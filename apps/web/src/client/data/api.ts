@@ -1,4 +1,5 @@
 import { ErrorDto, PublicationDto } from '../../shared/api-contract';
+import { publicationDateAt } from '../../shared/schedule';
 
 declare global {
   interface Window {
@@ -17,8 +18,9 @@ export async function fetchTodayPublication(
 ): Promise<PublicationDto> {
   const started = window.todayResponse;
   window.todayResponse = undefined;
+  const early = await started;
   const response =
-    (await started) ??
+    early ??
     (await fetch('/api/quote/today', {
       headers: { Accept: 'application/json' },
       ...(signal ? { signal } : {}),
@@ -36,6 +38,10 @@ export async function fetchTodayPublication(
   const publication = PublicationDto.safeParse(body);
   if (!publication.success) {
     throw new TodayQuoteUnavailableError('The server sent a quote in an unexpected shape.');
+  }
+  // The countdown starts after the page-load request, so it would miss a midnight between them.
+  if (early && publication.data.date < publicationDateAt(new Date())) {
+    return fetchTodayPublication(signal, { fresh: true });
   }
   return publication.data;
 }
