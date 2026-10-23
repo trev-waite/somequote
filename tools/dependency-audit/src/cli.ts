@@ -17,7 +17,8 @@ function run(command: string, args: readonly string[], cwd: string, okStatuses =
 const audit = (cwd: string) => parseAuditReport(run('bun', ['audit', '--json'], cwd, [0, 1]));
 
 /** Compares the lockfile's audit with one in which every direct dependency is at its latest. */
-export function auditDependencies(root = process.cwd()): Triage {
+function auditDependencies(): Triage {
+  const root = process.cwd();
   const current = audit(root);
   if (current.length === 0) return triage([], []);
 
