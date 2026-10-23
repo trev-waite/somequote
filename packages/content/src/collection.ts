@@ -1,6 +1,6 @@
 import { parseQuoteId, type Quote } from '@somequote/domain';
-import { BIBLE_TRANSLATION, BIBLE_VERSES } from './bible';
-import { GENERAL_QUOTES } from './general';
+import { BIBLE_TRANSLATION, BIBLE_VERSES } from './quotes/bible';
+import { GENERAL_QUOTES } from './quotes/general';
 
 export interface CollectionEntry {
   readonly quote: Quote;

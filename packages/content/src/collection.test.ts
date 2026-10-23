@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BIBLE_VERSES, type BibleEntry } from './bible';
 import { COLLECTION } from './collection';
-import { GENERAL_QUOTES, type GeneralEntry } from './general';
+import { BIBLE_VERSES, type BibleEntry } from './quotes/bible';
+import { GENERAL_QUOTES, type GeneralEntry } from './quotes/general';
 import { SOURCES } from './sources';
 import { findContentProblems } from './validate';
 

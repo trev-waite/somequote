@@ -1,6 +1,6 @@
 import { isAttributionText, isQuoteId, QUOTE_TEXT_MAX_LENGTH } from '@somequote/domain';
-import type { BibleEntry } from './bible';
-import type { GeneralEntry } from './general';
+import type { BibleEntry } from './quotes/bible';
+import type { GeneralEntry } from './quotes/general';
 
 const MIN_QUOTE_LENGTH = 16;
 const MAX_QUOTE_LINES = 8;

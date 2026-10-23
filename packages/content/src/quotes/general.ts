@@ -1,4 +1,4 @@
-import type { SourceId } from './sources';
+import type { SourceId } from '../sources';
 import { SPORTS_QUOTES } from './sports';
 
 export interface GeneralEntry {
