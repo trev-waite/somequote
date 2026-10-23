@@ -6,19 +6,19 @@ Cloudflare and GitHub setup that lives outside the repository.
 
 Merging to `main` deploys through CI. Before the first deploy, `somequote.com` must be active in the same Cloudflare account with no apex `A`, `AAAA`, or `CNAME` record. Don't connect Workers Builds, because it would deploy without CI's checks.
 
-To deploy manually, run Actions → CI/CD → Run workflow on `main`. It uses the same checks, tested build, `prod` credentials, smoke test, and rollback as a merge. Local builds and previews need no Cloudflare credentials.
+To deploy manually, run Actions → CI/CD → Run workflow on `main`, using the same checks and `prod` environment as a merge.
 
 ## Release versions
 
-The root `package.json` owns the version of the entire deployed app, including its domain and content packages. Use stable semantic versions: patch for fixes, minor for features, major for breaking changes. There are no independent package releases.
+The root `package.json` versions the whole deployed app. For every PR with non-Markdown changes, run `bun pm version patch --no-git-tag-version` at the root and commit the change. Choose `minor` for features or `major` for breaking changes. Markdown-only changes need no bump and don't deploy automatically.
 
-Every PR with a non-Markdown change must increase the version above its base. Run `bun pm version patch --no-git-tag-version` at the repository root (or choose `minor` or `major`), then commit the change. Markdown-only PRs need no bump and Markdown-only pushes to `main` don't deploy. CI checks the version in the existing required checks; `RELEASE_BASE_REF=origin/main bun run release:check` runs the check locally. If another PR lands first, update your branch and bump again.
+CI requires a stable version higher than the PR base. Check locally with `RELEASE_BASE_REF=origin/main bun run release:check`. If another PR lands first, update your branch and bump again.
 
-After the exact tested build deploys and production passes its smoke test, a separate job creates `v<version>` at that commit and publishes a GitHub release with generated change notes and links to production, the commit, and the Actions run. Cloudflare uses the same version tag. The deploy job retains a read-only GitHub token and the existing main-only `prod` environment; only the release job gets `contents: write`, with no Cloudflare credentials. The built-in `GITHUB_TOKEN` needs no additional secret.
+After production passes its smoke test, CI publishes `v<version>` at the deployed commit with generated GitHub release notes. Cloudflare uses the same tag. No additional secrets are needed.
 
-Before any migration or deployment, an existing tag for a different commit blocks the run. Re-running the exact tagged commit is allowed, and publishing an existing release is a no-op. A stale or failed deployment, including one rolled back after a failed smoke test, publishes no release. Fix a failed deployment in a new PR with a higher version. Worker rollback still uses Cloudflare's immutable version ID and doesn't roll back D1 migrations or seeded content.
+An existing tag for a different commit blocks deployment before migrations; exact-commit retries are allowed. Stale or failed deployments publish no release. Worker rollback uses Cloudflare version IDs and doesn't undo D1 migrations or seeded content.
 
-If release publication fails after a healthy deployment, re-run only the failed release job. Production stays deployed; the release job can recover the missing tag and release without deploying again. Releases record successful deployments; the current deployment status is in GitHub's `prod` environment and Cloudflare, including any later rollback.
+If release publication fails after a healthy deployment, re-run only the failed release job. Releases record deployment history; check the `prod` environment or Cloudflare for the current live deployment.
 
 ## Zone configuration
 

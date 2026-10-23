@@ -331,7 +331,6 @@ jobs:
         id: smoke
         run: bun run smoke https://somequote.com
 
-      # At most one rollback per run; the deploy job's GitHub token is read-only.
       # Migrations are append-only, so the previous version still runs against the new schema.
       - name: Roll back a failed deploy
         if: failure() && steps.smoke.outcome == 'failure' && steps.previous.outputs.version != ''
