@@ -29,7 +29,6 @@ const EYE = { cup: 2.1, tube: 1.9, glass: 1.2, length: 4 } as const;
 /** The middle of the closed spyglass, which it turns about while resting on the 0. */
 const MIDDLE = 9;
 const SIZE = 1.3;
-/** Where the eyepiece is held to look over the 404: low, to its left, and nearer the reader. */
 const LOOKOUT: Vec3 = [70, 100, 6.5];
 
 function aimAt(target: Vec3): Partial<SpyglassPose> {
@@ -40,7 +39,6 @@ function aimAt(target: Vec3): Partial<SpyglassPose> {
 const OPEN = { lift: 14, extend: 1 } as const;
 const TURN_MS = 350;
 const LOOKS = DIGIT_TARGETS.map((target) => held({ away: 1, extend: 1, ...aimAt(target) }));
-/** Lying open at the lookout, below the quote, while it is read. */
 const PARKED = held({ away: 1, extend: 1 });
 const RAISE_MS = 600;
 
@@ -50,7 +48,6 @@ const scanFrom = (start: number) =>
     [start + (index + 1) * SWITCHING.beat - TURN_MS, pose],
   ]);
 
-/** Pops open, moves to the lookout, scans the 404 into the quote and back, then goes home. */
 const KEYFRAMES: readonly (readonly [ms: number, pose: SpyglassPose])[] = [
   [0, RESTING],
   [300, held({ lift: 12 })],
@@ -212,7 +209,6 @@ const outlineOf = (frame: Frame, extend: number, margin: number) =>
 /** Wider than the spyglass itself, so the slim tube is still easy to tap. */
 export const SPYGLASS_AREA = areaOf(outlineOf(RESTING_FRAME, 0, 4.5));
 
-/** Everywhere the spyglass goes, so the drawing leaves room for it. */
 export const SPYGLASS_REACH = Array.from({ length: 161 }, (_, step) => {
   const pose = spyglassAt((step / 160) * LOOK_MS);
   return outlineOf(frameAt(pose), pose.extend, 1.5);

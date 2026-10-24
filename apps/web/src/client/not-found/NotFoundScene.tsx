@@ -19,7 +19,6 @@ export type Phase = 'rest' | 'quote' | 'digits';
 const viewBox = `${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.width} ${VIEW_BOX.height}`;
 const FADE_MS = 300;
 
-/** Plays forward toward the quote and backward toward the 404, so both directions match. */
 function play(name: string, phase: Phase, delayMs: number, durationMs: number): CSSProperties {
   return {
     animationName: name,
@@ -48,10 +47,7 @@ interface SignProps {
   readonly reduced: boolean;
 }
 
-/**
- * The 404 and the quote it turns into, which only redraw when the phase changes. Keys carry the
- * phase so each switch starts its animations afresh rather than reversing finished ones.
- */
+/** Phase keys restart finished CSS animations for each switch. */
 const Sign = memo(function Sign({ phase, lateMs, letters, reduced }: SignProps) {
   const switching = phase !== 'rest';
   const at = (quoteMs: number, digitsMs: number) =>
@@ -74,7 +70,7 @@ const Sign = memo(function Sign({ phase, lateMs, letters, reduced }: SignProps) 
   );
 
   return (
-    <svg className="iso-svg not-found-sign" viewBox={viewBox} aria-hidden="true" focusable="false">
+    <svg className="iso-svg" viewBox={viewBox} aria-hidden="true" focusable="false">
       <defs>
         <filter id="not-found-halo" x="-20%" y="-60%" width="140%" height="220%">
           <feGaussianBlur stdDeviation="4" />

@@ -32,7 +32,6 @@ const triggerStyle = {
   clipPath: SPYGLASS_AREA.clipPath,
 };
 
-/** Lays out the quote once its font has loaded, so each letter sits where the font puts it. */
 function useQuoteLetters() {
   const [letters, setLetters] = useState<readonly Letter[] | null>(null);
   useEffect(() => {

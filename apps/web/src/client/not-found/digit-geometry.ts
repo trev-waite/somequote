@@ -169,7 +169,6 @@ const PLACED = [
 
 export const DIGITS = PLACED.map(({ glyph, left }) => digit(glyph, left));
 
-/** The middle of each digit's face, where the spyglass looks. */
 export const DIGIT_TARGETS = PLACED.map(({ glyph, left }): Vec3 => {
   const width = Math.max(...(glyph.contours[0] ?? []).map(({ x }) => x));
   return [left + width / 2, DEPTH, HEIGHT / 2];

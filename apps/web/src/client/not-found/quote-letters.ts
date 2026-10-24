@@ -11,24 +11,17 @@ export const LETTER_SIZE = 21;
 const LEADING = 26;
 const FIRST_BASELINE = 20;
 
-/** The quote stands where the 404 stood, on the plane of the digits' faces. */
 export const FACE_PLANE = planeMatrix([0, DEPTH, HEIGHT], [1, 0, 0], [0, 0, -1]);
-/** Its source lies on the ground in front, written like the note on the desk. */
 export const GROUND_PLANE = planeMatrix([WIDTH / 2, DEPTH + 10, 0], [1, 0, 0], [0, 1, 0]);
 
-/**
- * Milliseconds from the spyglass being picked up. It reaches each digit a beat after the last, and
- * every switch is timed from that arrival, so each digit changes while the spyglass looks at it.
- */
+/** All timings share the spyglass pickup as their origin. */
 export const SWITCHING = {
   start: 1550,
   beat: 900,
   letterMs: 450,
   digitMs: 520,
   holdMs: 8000,
-  /** Toward the quote, the digit pops as the spyglass arrives and its letters sweep in after. */
   toQuote: { digit: 120, letters: 420, spread: 420, lineLag: 50 },
-  /** Back to the 404, the letters sweep out as it arrives and the digit pops back while it looks. */
   toDigits: { letters: -250, spread: 250, lineLag: 40, digit: 100 },
 } as const;
 
@@ -66,10 +59,6 @@ const EDGES = DIGIT_TARGETS.slice(1).map(
   ([x], index) => ((DIGIT_TARGETS[index]?.[0] ?? 0) + x) / 2,
 );
 
-/**
- * Lays out the quote's lines centered on the 404, each letter belonging to the digit beneath it.
- * A digit's letters come in sweeping left to right, each line a little after the one above.
- */
 export function layQuote(measure: (text: string) => number): Letter[] {
   const placed = QUOTE_LINES.flatMap((text, line) => {
     const start = WIDTH / 2 - measure(text) / 2;

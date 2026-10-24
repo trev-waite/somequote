@@ -9,7 +9,6 @@ const HEADERS = {
   'X-Robots-Tag': 'noindex',
 };
 
-/** True when one of the Accept header's media ranges is exactly `text/html` with a quality above 0. */
 function acceptsHtml(accept: string | null): boolean {
   return (accept ?? '').split(',').some((range) => {
     const [type, ...parameters] = range.split(';').map((part) => part.trim().toLowerCase());
