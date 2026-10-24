@@ -119,7 +119,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .not-found-art:has(.spyglass-trigger[aria-disabled="false"]:hover) .not-found-spyglass {
+  .not-found-art:has(.spyglass-trigger:hover) .not-found-spyglass {
     transform: translateY(-2.5px);
   }
 

@@ -59,17 +59,20 @@ interface Look {
   readonly pose: SpyglassPose;
   /** How far past its scheduled time the phase began, such as after a background tab resumes. */
   readonly lateMs: number;
+  /** The motion preference when the look began, kept until it ends so a change cannot restart it. */
+  readonly reduced: boolean;
 }
 
-function useLooking(reduced: boolean) {
+function useLooking(prefersReduced: boolean) {
   const [look, setLook] = useState<Look | null>(null);
   const looking = look !== null;
+  const reduced = look?.reduced ?? prefersReduced;
 
   useEffect(() => {
     if (!looking) return;
     if (reduced) {
       const back = window.setTimeout(
-        () => setLook({ phase: 'digits', pose: RESTING, lateMs: 0 }),
+        () => setLook((current) => current && { ...current, phase: 'digits' }),
         SWITCHING.holdMs,
       );
       const done = window.setTimeout(() => setLook(null), SWITCHING.holdMs + REDUCED_FADE_MS);
@@ -90,10 +93,11 @@ function useLooking(reduced: boolean) {
       const phase = ms < BACK_AT ? 'quote' : 'digits';
       const pose = spyglassAt(ms);
       setLook((current) => {
-        if (current?.phase === phase) {
+        if (!current) return current;
+        if (current.phase === phase) {
           return current.pose === pose ? current : { ...current, pose };
         }
-        return { phase, pose, lateMs: ms - (phase === 'digits' ? BACK_AT : 0) };
+        return { ...current, phase, pose, lateMs: ms - (phase === 'digits' ? BACK_AT : 0) };
       });
       frame = requestAnimationFrame(step);
     };
@@ -107,15 +111,19 @@ function useLooking(reduced: boolean) {
   return {
     phase,
     lateMs: look?.lateMs ?? 0,
+    reduced,
     drawing,
-    look: () => setLook((current) => current ?? { phase: 'quote', pose: RESTING, lateMs: 0 }),
+    look: () =>
+      setLook(
+        (current) =>
+          current ?? { phase: 'quote', pose: RESTING, lateMs: 0, reduced: prefersReduced },
+      ),
   };
 }
 
 export function NotFound() {
-  const reduced = usePrefersReducedMotion();
   const letters = useQuoteLetters();
-  const { phase, lateMs, drawing, look } = useLooking(reduced);
+  const { phase, lateMs, reduced, drawing, look } = useLooking(usePrefersReducedMotion());
   const ready = letters !== null && phase === 'rest';
 
   return (

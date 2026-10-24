@@ -104,6 +104,46 @@ test('after a background tab, switching back picks up where the spyglass has got
   expect(Number.parseFloat(delay)).toBeLessThan(0);
 });
 
+test('turning on reduced motion during a look lets it play out as it began', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/404');
+  const trigger = page.getByRole('button', { name: 'Look through the spyglass' });
+  await expect(trigger).toHaveAttribute('aria-disabled', 'false');
+  const spyglass = page.locator('.not-found-spyglass');
+  const resting = await spyglass.innerHTML();
+  await trigger.click();
+  await page.clock.runFor(3000);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.runFor(100);
+  const before = await spyglass.innerHTML();
+  await page.clock.runFor(500);
+  expect(await spyglass.innerHTML()).not.toBe(before);
+
+  await page.clock.runFor(16_000);
+  await expect(page.locator('.quote-letter')).toHaveCount(0);
+  expect(await spyglass.innerHTML()).toBe(resting);
+});
+
+test('turning off reduced motion during a look keeps the spyglass still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await page.goto('/404');
+  const trigger = page.getByRole('button', { name: 'Look through the spyglass' });
+  await expect(trigger).toHaveAttribute('aria-disabled', 'false');
+  const spyglass = page.locator('.not-found-spyglass');
+  const resting = await spyglass.innerHTML();
+  await trigger.click();
+  await page.clock.runFor(2000);
+
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.clock.runFor(600);
+  expect(await spyglass.innerHTML()).toBe(resting);
+
+  await page.clock.runFor(7000);
+  await expect(page.locator('.quote-letter')).toHaveCount(0);
+});
+
 test('missing resources and private path probes return 404 without app fallbacks', async ({
   request,
 }) => {
