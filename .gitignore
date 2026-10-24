@@ -8,6 +8,7 @@ dist/
 !.env.example
 *.log
 .DS_Store
+__pycache__/
 coverage/
 playwright-report/
 test-results/

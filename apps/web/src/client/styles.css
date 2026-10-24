@@ -126,6 +126,17 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+:where(button, a[href]) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+:where(a[href]):active {
+  opacity: 0.6;
+}
+
 .scene {
   min-height: var(--scene-height);
   scroll-snap-align: start;
@@ -298,9 +309,6 @@ body {
   text-decoration: underline;
   text-underline-offset: 4px;
   cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
 }
 
 .status button:active {
@@ -394,10 +402,6 @@ body {
   border-radius: var(--space-2);
   background: none;
   cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
 }
 
 .iso-svg {
@@ -587,8 +591,6 @@ body {
   background: none;
   cursor: pointer;
   pointer-events: auto;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .book-page-control[aria-disabled="true"] {
@@ -709,10 +711,6 @@ body {
   border-radius: var(--space-1);
   background: none;
   cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
 }
 
 .bottle-trigger[aria-disabled="true"] {
@@ -797,9 +795,6 @@ body {
   background: none;
   cursor: grab;
   touch-action: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
 }
 
 .magnifier-grip[data-held] {
@@ -901,10 +896,6 @@ body {
   border-radius: var(--space-1);
   background: none;
   cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
 }
 
 .envelope-trigger[aria-disabled="true"] {

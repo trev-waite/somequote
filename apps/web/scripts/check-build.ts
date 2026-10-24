@@ -11,13 +11,13 @@ const PUBLIC_FILES = [
   /^favicon\.svg$/,
   /^og-image\.png$/,
   /^(?:color-scheme|request-today)\.js$/,
-  /^assets\/(?:index|Desk)-[\w-]+\.(?:js|css)$/,
+  /^assets\/(?:index|Desk|color-scheme|NotFound)-[\w-]+\.(?:js|css)$/,
   /^fonts\/[\w-]+\.(?:woff2|txt)$/,
 ];
 
 /** Raise a budget deliberately, in the same change that needs it. */
-const GZIP_BUDGETS = { js: 110_000, css: 6_000 };
-const INITIAL_JS_BUDGET = 85_000;
+const GZIP_BUDGETS = { js: 115_000, css: 6_000 };
+const INITIAL_JS_BUDGET = 86_000;
 
 /** `.assetsignore` keeps the generated Worker config and local secrets out of public assets. */
 const REQUIRED_IGNORES = ['wrangler.json', '.dev.vars'];

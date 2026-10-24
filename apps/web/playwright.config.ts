@@ -18,7 +18,7 @@ export default defineConfig({
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 15'] },
-      testMatch: 'quote-typography.spec.ts',
+      testMatch: ['quote-typography.spec.ts', 'native-mobile.spec.ts'],
     },
   ],
   webServer: {
