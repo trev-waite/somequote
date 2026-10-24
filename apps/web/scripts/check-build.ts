@@ -11,7 +11,7 @@ const PUBLIC_FILES = [
   /^favicon\.svg$/,
   /^og-image\.png$/,
   /^(?:color-scheme|request-today)\.js$/,
-  /^assets\/(?:index|Desk|DeskPart|NotFound)-[\w-]+\.(?:js|css)$/,
+  /^assets\/(?:index|Desk|color-scheme|NotFound)-[\w-]+\.(?:js|css)$/,
   /^fonts\/[\w-]+\.(?:woff2|txt)$/,
 ];
 

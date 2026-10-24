@@ -2,10 +2,6 @@
   display: grid;
   grid-template-rows: var(--space-4) 1fr;
   gap: var(--space-3);
-  min-height: 100svh;
-  padding: max(var(--space-5), env(safe-area-inset-top))
-    max(var(--space-3), env(safe-area-inset-right)) max(var(--space-5), env(safe-area-inset-bottom))
-    max(var(--space-3), env(safe-area-inset-left));
 }
 
 .not-found-main {
@@ -25,13 +21,9 @@
   text-underline-offset: 5px;
 }
 
-.not-found-home:active {
-  opacity: 0.6;
-}
-
 .not-found-art {
   position: relative;
-  width: min(92vw, 640px, max(300px, (100svh - 240px) * var(--art-aspect)));
+  width: min(100%, 640px, max(300px, (var(--scene-height) - 240px) * var(--art-aspect)));
 }
 
 /* Its own compositor layer, so the moving spyglass does not repaint the 404 and quote beneath. */
@@ -99,10 +91,6 @@
   border: 0;
   background: none;
   cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
 }
 
 .spyglass-trigger[aria-disabled="true"] {

@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { usePrefersReducedMotion } from '../data/today';
+import { useColorScheme } from '../desk/color-scheme';
 import { overlay } from '../desk/desk-geometry';
 import { Logo } from '../Logo';
 import { NotFoundScene, type Phase } from './NotFoundScene';
@@ -122,12 +123,13 @@ function useLooking(prefersReduced: boolean) {
 }
 
 export function NotFound() {
+  useColorScheme();
   const letters = useQuoteLetters();
   const { phase, lateMs, reduced, drawing, look } = useLooking(usePrefersReducedMotion());
   const ready = letters !== null && phase === 'rest';
 
   return (
-    <div className="not-found-page">
+    <div className="scene not-found-page">
       <header className="page-header">
         <a className="brand" href="/" aria-label="SomeQuote home">
           <Logo />
