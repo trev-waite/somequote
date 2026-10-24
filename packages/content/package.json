@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./attributions": "./src/attributions.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "verify-sources": "bun scripts/verify-sources.ts"
+    "verify-sources": "bun scripts/verify-sources.ts",
+    "verify-attributions": "bun scripts/verify-attributions.ts"
   },
   "dependencies": {
     "@somequote/domain": "workspace:*"

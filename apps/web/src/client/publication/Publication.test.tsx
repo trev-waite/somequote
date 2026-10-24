@@ -70,6 +70,30 @@ describe('PublicationView', () => {
     );
   });
 
+  it.each([
+    [emerson, 'Ralph Waldo Emerson', 'Ralph_Waldo_Emerson'],
+    [psalm, 'Psalm 23:1', 'Psalms'],
+  ])('links the attribution to its Grokipedia entry', (publication, label, page) => {
+    const { attribution } = show(publication);
+    const link = attribution.querySelector('a');
+
+    expect(link?.textContent).toBe(label);
+    expect(link?.getAttribute('href')).toBe(`https://grokipedia.com/page/${page}`);
+    expect(link?.target).toBe('_blank');
+    expect(link?.rel).toBe('noopener noreferrer');
+    expect(attribution.querySelector('.attribution-secondary')?.tagName).toBe('SPAN');
+  });
+
+  it('keeps an unfamiliar attribution readable without inventing a link', () => {
+    const { attribution } = show({
+      ...emerson,
+      quote: { ...emerson.quote, category: 'general', author: 'Unknown Author', source: 'Example' },
+    });
+
+    expect(attribution.querySelector('.attribution-primary')?.textContent).toBe('Unknown Author');
+    expect(attribution.querySelector('a')).toBeNull();
+  });
+
   it('gives assistive technology the whole quote once, as plain text', () => {
     const { container } = show(emerson);
     const quote = container.querySelector('blockquote');
