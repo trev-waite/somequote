@@ -53,6 +53,7 @@ test('shows today’s quote under the production headers without browser errors'
   });
   await expect(attribution).toHaveAttribute('href', /^https:\/\/grokipedia\.com\/page\/.+/);
   await expect(attribution).toHaveAttribute('target', '_blank');
+  await expect(attribution).toHaveCSS('user-select', 'text');
   expect(await page.evaluate(() => document.fonts.check('400 1em "Instrument Serif"'))).toBe(true);
   expect(problems).toEqual([]);
 });

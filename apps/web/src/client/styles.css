@@ -340,6 +340,7 @@ body {
 .attribution-primary {
   color: var(--ink-secondary);
   font-weight: 500;
+  user-select: text;
 }
 
 .attribution-secondary {
