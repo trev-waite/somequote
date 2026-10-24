@@ -1,13 +1,11 @@
 const QUOTE_MARK = `
-    .d8888b.    .d8888b.
-   d88P  Y88b  d88P  Y88b
-   888    888  888    888
-   Y88b  d888  Y88b  d888
-    "Y8888888   "Y8888888
-          888         888
-        .d88P       .d88P
-     .d888P"     .d888P"
-   d888P"      d888P"
+    .d88b.    .d88b.
+   d88888b   d88888b
+   8888888   8888888
+   Y888888   Y888888
+    "Y888P    "Y888P
+     d88P      d88P
+   .d8P"     .d8P"
 `;
 
 export function greetConsole(): void {
@@ -16,7 +14,7 @@ export function greetConsole(): void {
    SomeQuote · one quote a day, the same for everyone.
    Today’s, as JSON: ${location.origin}/api/quote/today
 `,
-    'font-weight: bold',
+    'font-family: monospace; font-weight: bold; line-height: 1.1',
     'font-weight: normal',
   );
 }

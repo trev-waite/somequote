@@ -10,9 +10,9 @@
   "workers_dev": false,
   "preview_urls": false,
   "assets": {
-    // The React app is served as static assets; only /api/* reaches the Worker.
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "run_worker_first": ["/api", "/api/*", "/404"]
   },
   "d1_databases": [
     {
