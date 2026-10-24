@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { BACK_AT } from '../src/client/not-found/quote-letters';
 
 test('unknown page visits redirect to the custom 404 without requesting a daily quote', async ({
   page,
@@ -49,6 +50,8 @@ test('the spyglass turns the 404 into the quote letter by letter, then back', as
   await trigger.focus();
   await page.keyboard.press('Enter');
   await expect(trigger).toHaveAttribute('aria-disabled', 'true');
+  await expect(trigger).toBeFocused();
+  await expect(trigger).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await page.clock.runFor(6000);
   await expect(letters).toHaveCount(quote.replace(/\s/g, '').length);
   expect(await spyglass.innerHTML()).not.toBe(resting);
@@ -82,6 +85,23 @@ test('the spyglass itself switches to the quote in dark mode, without moving whe
   await page.clock.runFor(9000);
   await expect(status).toHaveText('');
   await expect(letters).toHaveCount(0);
+});
+
+test('after a background tab, switching back picks up where the spyglass has got to', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto('/404');
+  const trigger = page.getByRole('button', { name: 'Look through the spyglass' });
+  await expect(trigger).toHaveAttribute('aria-disabled', 'false');
+  await trigger.click();
+  await page.clock.runFor(1000);
+  await page.clock.fastForward(BACK_AT + 1500 - 1000);
+
+  const first = page.locator('.quote-letter').first();
+  await expect(first).toHaveCSS('animation-direction', 'reverse');
+  const delay = await first.evaluate((letter) => getComputedStyle(letter).animationDelay);
+  expect(Number.parseFloat(delay)).toBeLessThan(0);
 });
 
 test('missing resources and private path probes return 404 without app fallbacks', async ({

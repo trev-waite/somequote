@@ -57,6 +57,8 @@ function useQuoteLetters() {
 interface Look {
   readonly phase: Exclude<Phase, 'rest'>;
   readonly pose: SpyglassPose;
+  /** How far past its scheduled time the phase began, such as after a background tab resumes. */
+  readonly lateMs: number;
 }
 
 function useLooking(reduced: boolean) {
@@ -67,7 +69,7 @@ function useLooking(reduced: boolean) {
     if (!looking) return;
     if (reduced) {
       const back = window.setTimeout(
-        () => setLook({ phase: 'digits', pose: RESTING }),
+        () => setLook({ phase: 'digits', pose: RESTING, lateMs: 0 }),
         SWITCHING.holdMs,
       );
       const done = window.setTimeout(() => setLook(null), SWITCHING.holdMs + REDUCED_FADE_MS);
@@ -87,9 +89,12 @@ function useLooking(reduced: boolean) {
       }
       const phase = ms < BACK_AT ? 'quote' : 'digits';
       const pose = spyglassAt(ms);
-      setLook((current) =>
-        current?.phase === phase && current.pose === pose ? current : { phase, pose },
-      );
+      setLook((current) => {
+        if (current?.phase === phase) {
+          return current.pose === pose ? current : { ...current, pose };
+        }
+        return { phase, pose, lateMs: ms - (phase === 'digits' ? BACK_AT : 0) };
+      });
       frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
@@ -101,15 +106,16 @@ function useLooking(reduced: boolean) {
   const drawing = useMemo(() => spyglassDrawingAt(pose), [pose]);
   return {
     phase,
+    lateMs: look?.lateMs ?? 0,
     drawing,
-    look: () => setLook((current) => current ?? { phase: 'quote', pose: RESTING }),
+    look: () => setLook((current) => current ?? { phase: 'quote', pose: RESTING, lateMs: 0 }),
   };
 }
 
 export function NotFound() {
   const reduced = usePrefersReducedMotion();
   const letters = useQuoteLetters();
-  const { phase, drawing, look } = useLooking(reduced);
+  const { phase, lateMs, drawing, look } = useLooking(reduced);
   const ready = letters !== null && phase === 'rest';
 
   return (
@@ -125,7 +131,13 @@ export function NotFound() {
           Back to today’s quote
         </a>
         <div className="not-found-art" style={artStyle}>
-          <NotFoundScene phase={phase} letters={letters} reduced={reduced} {...drawing} />
+          <NotFoundScene
+            phase={phase}
+            lateMs={lateMs}
+            letters={letters}
+            reduced={reduced}
+            {...drawing}
+          />
           <button
             className="spyglass-trigger"
             type="button"

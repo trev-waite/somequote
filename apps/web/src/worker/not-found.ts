@@ -9,6 +9,15 @@ const HEADERS = {
   'X-Robots-Tag': 'noindex',
 };
 
+/** True when one of the Accept header's media ranges is exactly `text/html` with a quality above 0. */
+function acceptsHtml(accept: string | null): boolean {
+  return (accept ?? '').split(',').some((range) => {
+    const [type, ...parameters] = range.split(';').map((part) => part.trim().toLowerCase());
+    const quality = parameters.find((parameter) => parameter.startsWith('q='));
+    return type === 'text/html' && (quality === undefined || Number(quality.slice(2)) > 0);
+  });
+}
+
 export async function notFoundResponse(
   request: Request,
   assets: Pick<Fetcher, 'fetch'>,
@@ -53,7 +62,7 @@ export async function notFoundResponse(
       .transform(response);
   }
 
-  if (canNavigate && request.headers.get('Accept')?.includes('text/html')) {
+  if (canNavigate && acceptsHtml(request.headers.get('Accept'))) {
     return new Response(null, { status: 302, headers: { ...HEADERS, Location: '/404' } });
   }
 

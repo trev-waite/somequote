@@ -114,10 +114,6 @@
   background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
-.spyglass-trigger[aria-disabled="true"]:focus-visible {
-  background: none;
-}
-
 .not-found-art:has(.spyglass-trigger[aria-disabled="false"]:active) .not-found-spyglass {
   transform: translateY(-1.5px);
 }

@@ -43,6 +43,7 @@ function Piece({ part }: { part: SpyglassPart }) {
 
 interface SignProps {
   readonly phase: Phase;
+  readonly lateMs: number;
   readonly letters: readonly Letter[] | null;
   readonly reduced: boolean;
 }
@@ -51,22 +52,24 @@ interface SignProps {
  * The 404 and the quote it turns into, which only redraw when the phase changes. Keys carry the
  * phase so each switch starts its animations afresh rather than reversing finished ones.
  */
-const Sign = memo(function Sign({ phase, letters, reduced }: SignProps) {
+const Sign = memo(function Sign({ phase, lateMs, letters, reduced }: SignProps) {
   const switching = phase !== 'rest';
+  const at = (quoteMs: number, digitsMs: number) =>
+    (phase === 'quote' ? quoteMs : digitsMs) - lateMs;
   const digitStyle = (index: number) => {
     if (!switching) return undefined;
     if (reduced) return play('fade-in', phase === 'quote' ? 'digits' : 'quote', 0, FADE_MS);
     const { toQuote, toDigits } = DIGIT_SWITCHES[index] ?? { toQuote: 0, toDigits: 0 };
-    return play('digit-pop', phase, phase === 'quote' ? toQuote : toDigits, SWITCHING.digitMs);
+    return play('digit-pop', phase, at(toQuote, toDigits), SWITCHING.digitMs);
   };
   const letterStyle = ({ toQuote, toDigits }: Letter) =>
     reduced
       ? play('fade-in', phase, 0, FADE_MS)
-      : play('word-rise', phase, phase === 'quote' ? toQuote : toDigits, SWITCHING.letterMs);
+      : play('word-rise', phase, at(toQuote, toDigits), SWITCHING.letterMs);
   const sourceStyle = play(
     reduced ? 'fade-in' : 'blur-in',
     phase,
-    reduced || phase === 'digits' ? 0 : SHOWN_AT,
+    reduced ? 0 : at(SHOWN_AT, 0),
     FADE_MS,
   );
 
@@ -120,10 +123,10 @@ const Sign = memo(function Sign({ phase, letters, reduced }: SignProps) {
 
 type SceneProps = SignProps & ReturnType<typeof spyglassDrawingAt>;
 
-export function NotFoundScene({ phase, letters, reduced, parts, shadow }: SceneProps) {
+export function NotFoundScene({ phase, lateMs, letters, reduced, parts, shadow }: SceneProps) {
   return (
     <>
-      <Sign phase={phase} letters={letters} reduced={reduced} />
+      <Sign phase={phase} lateMs={lateMs} letters={letters} reduced={reduced} />
       <svg
         className="iso-svg spyglass-layer"
         viewBox={viewBox}

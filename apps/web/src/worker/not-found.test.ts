@@ -23,6 +23,24 @@ describe('unknown site requests', () => {
   );
 
   it.each([
+    ['text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 302],
+    ['application/json, TEXT/HTML; q=0.5', 302],
+    ['text/html;q=0, application/json', 404],
+    ['text/htmlfoo', 404],
+    ['*/*', 404],
+  ])(
+    'treats a visit accepting %s as a page visit only if it accepts HTML',
+    async (accept, status) => {
+      const response = await notFoundResponse(
+        new Request(`${origin}/missing`, { headers: { Accept: accept } }),
+        { fetch: vi.fn<Fetcher['fetch']>() },
+      );
+
+      expect(response.status).toBe(status);
+    },
+  );
+
+  it.each([
     ['/assets/missing.js', 'GET'],
     ['/.env', 'GET'],
     ['/.git/config', 'HEAD'],
