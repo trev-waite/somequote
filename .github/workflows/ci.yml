@@ -157,13 +157,16 @@ jobs:
         working-directory: apps/web
         run: |
           playwright_version="$(bun -p "require('@playwright/test/package.json').version")"
-          echo "key=browser-packages-v1-$RUNNER_ARCH-$ImageOS-$ImageVersion-playwright-$playwright_version" >> "$GITHUB_OUTPUT"
+          cache_prefix="browser-packages-v2-$RUNNER_ARCH-$ImageOS-playwright-$playwright_version-"
+          echo "prefix=$cache_prefix" >> "$GITHUB_OUTPUT"
+          echo "key=$cache_prefix$ImageVersion" >> "$GITHUB_OUTPUT"
 
       - name: Restore the browsers' Ubuntu packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/browser-packages/*.deb
           key: ${{ steps.browser-packages.outputs.key }}
+          restore-keys: ${{ steps.browser-packages.outputs.prefix }}
 
       - name: Install Chromium and WebKit
         working-directory: apps/web
