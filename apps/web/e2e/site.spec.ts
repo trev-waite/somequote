@@ -47,9 +47,72 @@ test('shows today’s quote under the production headers without browser errors'
   await expect(page.locator('figcaption')).toContainText(
     quote.category === 'general' ? quote.author : quote.reference,
   );
+  const attribution = page.getByRole('link', {
+    name: quote.category === 'general' ? quote.author : quote.reference,
+    exact: true,
+  });
+  await expect(attribution).toHaveAttribute('href', /^https:\/\/grokipedia\.com\/page\/.+/);
+  await expect(attribution).toHaveAttribute('target', '_blank');
+  await expect(attribution).toHaveCSS('user-select', 'text');
   expect(await page.evaluate(() => document.fonts.check('400 1em "Instrument Serif"'))).toBe(true);
   expect(problems).toEqual([]);
 });
+
+for (const { quote, label, url } of [
+  {
+    quote: {
+      category: 'general',
+      id: 'james-allen-navigation',
+      text: 'As a man thinketh in his heart so is he.',
+      author: 'James Allen',
+      source: 'As a Man Thinketh',
+    },
+    label: 'James Allen',
+    url: 'https://grokipedia.com/page/James_Allen_(author)',
+  },
+  {
+    quote: {
+      category: 'bible',
+      id: 'web-psalm-23-1',
+      text: 'Yahweh is my shepherd; I shall lack nothing.',
+      reference: 'Psalm 23:1',
+      translation: 'World English Bible',
+    },
+    label: 'Psalm 23:1',
+    url: 'https://grokipedia.com/page/Psalms',
+  },
+]) {
+  test(`opens the Grokipedia entry for ${label} from the keyboard`, async ({ page, context }) => {
+    await page.route('**/api/quote/today', (route) =>
+      route.fulfill({ json: { date: '2026-10-24', quote } }),
+    );
+    await context.route('https://grokipedia.com/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<title>Attribution destination</title>' }),
+    );
+    await page.goto('/');
+    const attribution = page.getByRole('link', { name: label, exact: true });
+    await expect(attribution).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+
+    const extraWidth = await attribution.evaluate((link) => {
+      const text = document.createRange();
+      text.selectNodeContents(link);
+      return link.getBoundingClientRect().width - text.getBoundingClientRect().width;
+    });
+    expect(Math.abs(extraWidth)).toBeLessThan(1);
+
+    await attribution.focus();
+    await expect(attribution).toBeFocused();
+    const opened = page.waitForEvent('popup');
+    await attribution.press('Enter');
+    const destination = await opened;
+    await expect(destination).toHaveURL(url);
+    await destination.waitForLoadState();
+    expect(await destination.evaluate(() => window.opener)).toBeNull();
+    await expect(page.locator('blockquote')).toBeVisible();
+    await destination.close();
+  });
+}
 
 test('authorizes the built scripts with matching hashes and integrity', async ({
   page,

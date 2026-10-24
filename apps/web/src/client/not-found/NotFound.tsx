@@ -136,7 +136,7 @@ export function NotFound() {
       </header>
       <main className="not-found-main">
         <h1 className="visually-hidden">404 — Page not found</h1>
-        <a className="not-found-home" href="/">
+        <a className="not-found-home text-link" href="/">
           Back to today’s quote
         </a>
         <div className="not-found-art" style={artStyle}>

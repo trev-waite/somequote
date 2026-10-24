@@ -36,6 +36,7 @@ curl "http://localhost:5173/cdn-cgi/local/scheduled?cron=0+4+*+*+*"
 | `bun run lint` / `bun run format` | Biome check / fix |
 | `bun run typecheck` | TypeScript for every package |
 | `bun run content:verify-sources` | Downloads every cited source and checks each quote against it |
+| `bun run content:verify-attributions` | Checks every quote’s Grokipedia link reaches an article |
 | `bun run db:migrate:local` / `db:seed:local` | Apply migrations / upsert the collection into the local database |
 | `bun run hooks:install` / `scan:secrets` | Enables the pre-push secret scan (once per clone) / scans the whole history |
 | `bun run audit:dependencies` | Fails on any vulnerability that upgrading a direct dependency would fix, and on any critical one |
@@ -67,7 +68,15 @@ tools/release           reviewed app version and release-tag checks
 
 ## Content
 
-Almost every quote comes from a US public-domain text or the World English Bible, and `content:verify-sources` checks it against that source. A few well-known sayings by sports figures and racing drivers have no such text; these live in `packages/content/src/quotes/sports.ts`, are `attested` with where they were said and the year, and need manual review. Verse text is never edited. To add a quote, edit the lists in `packages/content/src/quotes`, then run `bun run test` and `bun run content:verify-sources`. To retire one, set `enabled: false`, because published history keeps it.
+Almost every quote comes from a US public-domain text or the World English Bible, and `content:verify-sources` checks it against that source. A few well-known sayings by sports figures and racing drivers have no such text; these live in `packages/content/src/quotes/sports.ts`, are `attested` with where they were said and the year, and need manual review. Verse text is never edited.
+
+To add a quote:
+
+1. Edit the lists in `packages/content/src/quotes`.
+2. Add the author’s Grokipedia article URL to `packages/content/src/attributions.ts` if it is not already listed. For Bible passages, use the article about the cited book. Open the link and confirm the article is about the intended person or entity; do not guess the URL from the displayed name. Reuse the existing mapping for repeat authors or books.
+3. Run `bun run test`, `bun run content:verify-sources`, and `bun run content:verify-attributions`. Tests require a curated link for every quote; the live link check verifies that each URL reaches a Grokipedia article. Confirming the article’s identity remains part of editorial review.
+
+To retire a quote, set `enabled: false`, because published history keeps it. Keep its attribution link for historical publications.
 
 ## Documentation
 

@@ -1,4 +1,5 @@
 import { isAttributionText, isQuoteId, QUOTE_TEXT_MAX_LENGTH } from '@somequote/domain';
+import { attributionUrl } from './attributions';
 import type { BibleEntry } from './quotes/bible';
 import type { GeneralEntry } from './quotes/general';
 import type { SportsEntry } from './quotes/sports';
@@ -30,6 +31,9 @@ export function findContentProblems({ general, sports, bible }: ContentEntries):
     for (const problem of textProblems(entry.text)) report(entry.id, problem);
   }
   for (const entry of [...general, ...sports]) {
+    if (!attributionUrl({ category: 'general', author: entry.author })) {
+      report(entry.id, 'author must have a verified Grokipedia entry in attributions.ts');
+    }
     for (const [field, value] of [
       ['author', entry.author],
       ['source', entry.source],
@@ -46,6 +50,9 @@ export function findContentProblems({ general, sports, bible }: ContentEntries):
     }
   }
   for (const entry of bible) {
+    if (!attributionUrl({ category: 'bible', reference: entry.reference })) {
+      report(entry.id, 'Bible book must have a verified Grokipedia entry in attributions.ts');
+    }
     for (const problem of verseProblems(entry)) report(entry.id, problem);
   }
 

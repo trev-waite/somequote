@@ -1,3 +1,4 @@
+import { attributionUrl } from '@somequote/content/attributions';
 import { type CSSProperties, useMemo } from 'react';
 import type { PublicationDto, QuoteDto } from '../../shared/api-contract';
 import { type Motion, planReveal, type Timing, tokenize } from './reveal';
@@ -40,6 +41,7 @@ export function PublicationView({ publication, motion }: PublicationViewProps) {
   const wordCount = tokens.filter((token) => token.kind === 'word').length;
   const plan = useMemo(() => planReveal(wordCount, motion), [wordCount, motion]);
   const { primary, secondary } = attributionOf(quote);
+  const url = attributionUrl(quote);
 
   const fade = plan.kind === 'fade' ? animation('fade-in', plan.fade) : undefined;
   const attributionStyle = plan.kind === 'cascade' ? animation('blur-in', plan.attribution) : fade;
@@ -70,7 +72,18 @@ export function PublicationView({ publication, motion }: PublicationViewProps) {
           </p>
         </blockquote>
         <figcaption className="attribution" style={attributionStyle}>
-          <span className="attribution-primary">{primary}</span>
+          {url ? (
+            <a
+              className="attribution-primary text-link"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {primary}
+            </a>
+          ) : (
+            <span className="attribution-primary">{primary}</span>
+          )}
           <span className="attribution-secondary">{secondary}</span>
         </figcaption>
       </figure>

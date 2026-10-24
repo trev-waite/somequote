@@ -1,6 +1,6 @@
 {
   "name": "somequote",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.4.3",
@@ -22,6 +22,7 @@
     "db:migrate:local": "bun run --cwd apps/web db:migrate:local",
     "db:seed:local": "bun run --cwd apps/web db:seed:local",
     "content:verify-sources": "bun run --cwd packages/content verify-sources",
+    "content:verify-attributions": "bun run --cwd packages/content verify-attributions",
     "scan:secrets": "bun tools/secret-scan/src/cli.ts",
     "audit:dependencies": "bun tools/dependency-audit/src/cli.ts",
     "release:check": "bun tools/release/src/cli.ts",

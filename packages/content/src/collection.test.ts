@@ -78,6 +78,7 @@ describe('editorial rules', () => {
     ['an overlong text', { text: `${'Long words. '.repeat(40)}End.` }, 'characters'],
     ['an invalid id', { id: 'Not An Id' }, 'id must be'],
     ['an empty author', { author: '' }, 'author must be trimmed'],
+    ['an unlinked author', { author: 'New Author' }, 'verified Grokipedia entry'],
     ['an overlong source', { source: 'Essays '.repeat(12).trim() }, 'source must be short'],
     ['a bidi override in the author', { author: 'Ralph\u202EWaldo' }, 'author must be short'],
   ])('rejects %s', (_, override, expected) => {
@@ -111,6 +112,11 @@ describe('editorial rules', () => {
   it('rejects a verse whose reference and passage disagree', () => {
     const problems = problemsFor({ bible: [{ ...validVerse, passage: 'PSA 23:2' }] });
     expect(problems.join('\n')).toContain('same verses');
+  });
+
+  it('rejects a verse from a book without a curated link', () => {
+    const problems = problemsFor({ bible: [{ ...validVerse, reference: 'Unknown 1:1' }] });
+    expect(problems.join('\n')).toContain('Bible book must have a verified Grokipedia entry');
   });
 
   it('derives verse ids from their reference', () => {
