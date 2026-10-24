@@ -149,9 +149,37 @@ jobs:
       - name: Production build, public asset allowlist, and size budgets
         run: bun run build
 
+      - name: Test browser package cache verification
+        run: python3 -m unittest discover -s tools/ci -p 'test_*.py'
+
+      - name: Name the browser package cache
+        id: browser-packages
+        working-directory: apps/web
+        run: |
+          playwright_version="$(bun -p "require('@playwright/test/package.json').version")"
+          echo "key=browser-packages-v1-$RUNNER_ARCH-$ImageOS-$ImageVersion-playwright-$playwright_version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the browsers' Ubuntu packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/browser-packages/*.deb
+          key: ${{ steps.browser-packages.outputs.key }}
+
       - name: Install Chromium and WebKit
         working-directory: apps/web
-        run: bunx playwright install --with-deps --only-shell chromium webkit
+        run: |
+          # APT checks only the size of existing archives, so verify their bytes before root installs them.
+          sudo apt-get update --error-on=any
+          python3 ../../tools/ci/restore_browser_packages.py \
+            "$HOME/browser-packages" "$RUNNER_TEMP/verified-browser-packages"
+          shopt -s nullglob
+          verified=("$RUNNER_TEMP/verified-browser-packages/"*.deb)
+          if ((${#verified[@]})); then sudo install -m 644 -- "${verified[@]}" /var/cache/apt/archives/; fi
+          bunx playwright install --with-deps --only-shell chromium webkit
+          rm -rf ~/browser-packages
+          mkdir -p ~/browser-packages
+          fetched=(/var/cache/apt/archives/*.deb)
+          if ((${#fetched[@]})); then cp "${fetched[@]}" ~/browser-packages/; fi
 
       - name: Browser smoke tests against the production build
         working-directory: apps/web
