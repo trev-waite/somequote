@@ -108,7 +108,7 @@ function grain(): Part[] {
   );
 }
 
-const NOTE = { x: 30, y: -15, w: 66, d: 22, z: 0.5, turn: (4 * Math.PI) / 180 } as const;
+const NOTE = { x: 30, y: -18, w: 66, d: 22, z: 0.5, turn: (4 * Math.PI) / 180 } as const;
 const noteU: Vec3 = [Math.cos(NOTE.turn), Math.sin(NOTE.turn), 0];
 const noteV: Vec3 = [-Math.sin(NOTE.turn), Math.cos(NOTE.turn), 0];
 const noteAt = (u: number, v: number, z: number): Vec3 =>
@@ -126,8 +126,8 @@ function note(): Part[] {
       text: 'until the next quote',
       transform: planeMatrix(noteAt(0, 0, NOTE.z), noteU, noteV),
       x: NOTE.w / 2,
-      y: NOTE.d / 2 + 2.3,
-      size: 7.2,
+      y: NOTE.d / 2 + 2.4,
+      size: 7.5,
     },
   ];
 }
@@ -173,9 +173,13 @@ function shadeSection(x: number, radius: number, steps = 22): Vec3[] {
 
 function lamp(): Part[] {
   const length = SHADE.x1 - SHADE.x0 - 2 * SHADE.band;
+  const foot = slab(FOOT, 0, l(5), 1);
+  const step = slab(STEP, l(5), FOOT_TOP - l(5), 0.7);
   return [
-    solid(slab(FOOT, 0, l(5), 1), 'mid'),
-    solid(slab(STEP, l(5), FOOT_TOP - l(5), 0.7), 'mid'),
+    solid(foot, 'mid'),
+    { kind: 'lit', d: foot.top, light: 1 },
+    solid(step, 'mid'),
+    { kind: 'lit', d: step.top, light: 1 },
     solid(cylinder(POST.x, POST.y, l(6.5), FOOT_TOP, l(4), 0.6), 'mid'),
     stroke(knurl(POST.x, POST.y, l(6.5), FOOT_TOP, FOOT_TOP + l(4), 28), 'faint'),
     solid(

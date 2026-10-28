@@ -219,7 +219,6 @@ function hitArea(surface: Surface, cover = false) {
 
 interface TurningSheet {
   readonly panels: readonly BookPart[];
-  readonly outline: string;
   readonly writing: string;
 }
 
@@ -243,13 +242,7 @@ function turningSheet(
       gutter + (base - gutter) * Math.cos(angle) ** 2 + across * BOOK.width * Math.sin(angle),
     ];
   };
-  const panels = litPaper(surface, 4);
-  const outline = [
-    ...samples.map((t) => surface(t, 0)),
-    surface(1, 1),
-    ...[...samples].reverse().map((t) => surface(t, 1)),
-  ];
-  return { panels, outline: line(outline, true), writing: writing(surface, page) };
+  return { panels: litPaper(surface, 4), writing: writing(surface, page) };
 }
 
 export function bookDrawingAt(position: number, target = position, progress = 0): BookDrawing {
