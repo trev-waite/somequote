@@ -173,9 +173,13 @@ function shadeSection(x: number, radius: number, steps = 22): Vec3[] {
 
 function lamp(): Part[] {
   const length = SHADE.x1 - SHADE.x0 - 2 * SHADE.band;
+  const foot = slab(FOOT, 0, l(5), 1);
+  const step = slab(STEP, l(5), FOOT_TOP - l(5), 0.7);
   return [
-    solid(slab(FOOT, 0, l(5), 1), 'mid'),
-    solid(slab(STEP, l(5), FOOT_TOP - l(5), 0.7), 'mid'),
+    solid(foot, 'mid'),
+    { kind: 'lit', d: foot.top, light: 1 },
+    solid(step, 'mid'),
+    { kind: 'lit', d: step.top, light: 1 },
     solid(cylinder(POST.x, POST.y, l(6.5), FOOT_TOP, l(4), 0.6), 'mid'),
     stroke(knurl(POST.x, POST.y, l(6.5), FOOT_TOP, FOOT_TOP + l(4), 28), 'faint'),
     solid(
