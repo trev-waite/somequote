@@ -48,11 +48,12 @@ describe('Book', () => {
     expect(document.documentElement.dataset.colorScheme).toBe('light');
   });
 
-  it('lifts a sheet, ignores extra clicks during its turn, and stops animating when it lands', () => {
+  it('lifts an unoutlined sheet, ignores extra clicks during its turn, and stops animating when it lands', () => {
     const { query, book, next, click, position, wait } = showBook('full');
     click(next);
     wait(200);
     expect(book.hasAttribute('data-turning')).toBe(true);
+    expect(query('.book-turning-sheet').querySelectorAll('.iso-line')).toHaveLength(1);
     const paintsAfter = (behind: Element, front: Element) =>
       (behind.compareDocumentPosition(front) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     expect(paintsAfter(query('.lamp-pull'), query('.book-turning-sheet'))).toBe(true);
