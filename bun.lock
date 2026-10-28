@@ -14,6 +14,7 @@
       "dependencies": {
         "@somequote/content": "workspace:*",
         "@somequote/domain": "workspace:*",
+        "effect": "4.0.7",
         "hono": "4.13.14",
         "react": "19.3.1",
         "react-dom": "19.3.1",
@@ -47,6 +48,9 @@
     },
     "packages/domain": {
       "name": "@somequote/domain",
+      "dependencies": {
+        "effect": "4.0.7",
+      },
       "devDependencies": {
         "typescript": "7.0.2",
         "vitest": "5.0.5",
@@ -381,6 +385,8 @@
     "csstype": ["csstype@3.2.3", "", {}, "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="],
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
+
+    "effect": ["effect@4.0.7", "", {}, "sha512-47CiUzNAmeLr40pDT9vKMxxtB8o3bdpZEKU4IUM3fVxsK2GYzPsV7fQoZP0I41A308BZd71nMxqJ0KRh3s9u2g=="],
 
     "entities": ["entities@7.0.1", "", {}, "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="],
 

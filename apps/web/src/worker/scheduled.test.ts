@@ -1,7 +1,7 @@
 import { createScheduledController } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { addDays, parsePublicationDate, publicationStartsAt } from '@somequote/domain';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import wranglerConfig from '../../wrangler.jsonc?raw';
 import worker from './index';
 import { generalQuote, insertQuotes, publicationRows, quotes, resetDatabase } from './test-support';
@@ -49,6 +49,22 @@ describe('scheduled publication', () => {
     await fire('0 4 * * *', '2026-10-19T04:00:00Z');
 
     expect(await publicationRows()).toEqual(first);
+  });
+
+  it('fails the run and logs why when nothing can be published', async () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await env.DB.prepare('UPDATE quotes SET enabled = 0').run();
+
+    await expect(fire('0 4 * * *', '2026-10-19T04:00:00Z')).rejects.toThrow();
+
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'ERROR',
+        message: 'Scheduled publication failed',
+        annotations: { cron: '0 4 * * *', date: '2026-10-19' },
+      }),
+    );
+    logError.mockRestore();
   });
 
   it('has a configured trigger at Eastern midnight on every day', () => {

@@ -1,19 +1,20 @@
 import { nextPublicationAt, publicationDateAt } from '@somequote/domain';
+import { Effect } from 'effect';
 import type { HistoryDto, PublicationDto } from '../../shared/api-contract';
 
 const MAX_CACHE_MS = 60 * 60 * 1000;
 
-interface PublicationResponseOptions {
+interface PublicationResponseOptions<E> {
   readonly url: string;
   readonly path: '/api/quote/today' | '/api/quotes/history';
   readonly parameters: URLSearchParams;
   readonly at: Date;
   readonly now: () => Date;
   readonly cache: Cache | undefined;
-  readonly load: () => Promise<PublicationDto | HistoryDto>;
+  readonly load: Effect.Effect<PublicationDto | HistoryDto, E>;
 }
 
-export async function publicationResponse({
+export function publicationResponse<E>({
   url,
   path,
   parameters,
@@ -21,35 +22,37 @@ export async function publicationResponse({
   now,
   cache,
   load,
-}: PublicationResponseOptions): Promise<Response> {
-  const key = new URL(path, url);
-  key.search = parameters.toString();
-  key.searchParams.set('_publication', publicationDateAt(at));
-  key.searchParams.set('_version', '1');
+}: PublicationResponseOptions<E>): Effect.Effect<Response, E> {
+  return Effect.gen(function* () {
+    const key = new URL(path, url);
+    key.search = parameters.toString();
+    key.searchParams.set('_publication', publicationDateAt(at));
+    key.searchParams.set('_version', '1');
 
-  const cached = await cache?.match(key.toString()).catch(logCacheFailure);
-  if (cached) {
-    const servedAt = now();
-    const expiresAt = new Date(cached.headers.get('Expires') ?? '');
-    if (expiresAt.getTime() > servedAt.getTime()) {
-      const response = new Response(cached.body, cached);
-      response.headers.delete('Age');
-      setCacheHeaders(response, servedAt, expiresAt);
-      return response;
+    const cached = cache && (yield* bestEffort('match', () => cache.match(key.toString())));
+    if (cached) {
+      const servedAt = now();
+      const expiresAt = new Date(cached.headers.get('Expires') ?? '');
+      if (expiresAt.getTime() > servedAt.getTime()) {
+        const response = new Response(cached.body, cached);
+        response.headers.delete('Age');
+        setCacheHeaders(response, servedAt, expiresAt);
+        return response;
+      }
     }
-  }
 
-  const body = await load();
-  const response = Response.json(body);
-  const expiresAt = new Date(
-    Math.min(at.getTime() + MAX_CACHE_MS, nextPublicationAt(at).getTime()),
-  );
-  const servedAt = now();
-  setCacheHeaders(response, servedAt, expiresAt);
-  if (expiresAt.getTime() - servedAt.getTime() >= 1000) {
-    await cache?.put(key.toString(), response.clone()).catch(logCacheFailure);
-  }
-  return response;
+    const body = yield* load;
+    const response = Response.json(body);
+    const expiresAt = new Date(
+      Math.min(at.getTime() + MAX_CACHE_MS, nextPublicationAt(at).getTime()),
+    );
+    const servedAt = now();
+    setCacheHeaders(response, servedAt, expiresAt);
+    if (cache && expiresAt.getTime() - servedAt.getTime() >= 1000) {
+      yield* bestEffort('put', () => cache.put(key.toString(), response.clone()));
+    }
+    return response;
+  });
 }
 
 function setCacheHeaders(response: Response, at: Date, expiresAt: Date): void {
@@ -59,6 +62,16 @@ function setCacheHeaders(response: Response, at: Date, expiresAt: Date): void {
   response.headers.set('Expires', expiresAt.toUTCString());
 }
 
-function logCacheFailure(error: unknown): void {
-  console.error('Publication cache unavailable', error);
+function bestEffort<A>(
+  operation: 'match' | 'put',
+  run: () => Promise<A>,
+): Effect.Effect<A | undefined> {
+  return Effect.tryPromise(run).pipe(
+    Effect.tapCause((cause) =>
+      Effect.logWarning('Publication cache unavailable', cause).pipe(
+        Effect.annotateLogs({ operation }),
+      ),
+    ),
+    Effect.orElseSucceed(() => undefined),
+  );
 }

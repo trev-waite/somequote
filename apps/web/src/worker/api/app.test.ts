@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers';
-import type { QuoteRepository } from '@somequote/domain';
+import { type QuoteRepository, QuoteStoreError } from '@somequote/domain/publication';
 import { seededRandom } from '@somequote/domain/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorDto, HistoryDto, PublicationDto } from '../../shared/api-contract';
 import { D1QuoteRepository } from '../db/d1-quote-repository';
 import {
@@ -38,6 +39,10 @@ async function get(app: ReturnType<typeof createApp>, path: string, init?: Reque
 beforeEach(async () => {
   await resetDatabase();
   await insertQuotes([...quotes('general', 12, generalQuote), ...quotes('verse', 3, bibleVerse)]);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('GET /api/quote/today', () => {
@@ -89,7 +94,8 @@ describe('GET /api/quote/today', () => {
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 
-  it('answers 503 with a typed error when nothing can be published', async () => {
+  it('answers 503 with a typed error when nothing can be published, and logs the outage', async () => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
     await env.DB.prepare('UPDATE quotes SET enabled = 0').run();
 
     const { response, body } = await get(appAt('2026-10-18T16:00:00Z'), '/api/quote/today');
@@ -97,14 +103,33 @@ describe('GET /api/quote/today', () => {
     expect(response.status).toBe(503);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(ErrorDto.parse(body).error.code).toBe('no_quote_available');
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'ERROR',
+        message: 'Request failed',
+        cause: expect.stringContaining('NoEligibleQuoteError'),
+      }),
+    );
   });
 
-  it('hides internal failures behind a generic error', async () => {
+  it.each([
+    [
+      'a storage failure',
+      Effect.fail(
+        new QuoteStoreError({
+          operation: 'findPublication',
+          cause: new Error('D1_ERROR: secret table detail'),
+        }),
+      ),
+    ],
+    ['an unexpected defect', Effect.die(new Error('D1_ERROR: secret table detail'))],
+  ])('hides %s behind a generic error and logs its cause', async (_, failure) => {
+    const logError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const failing: QuoteRepository = {
-      findPublication: () => Promise.reject(new Error('D1_ERROR: secret table detail')),
-      loadSelectionSnapshot: () => Promise.reject(new Error('unreachable')),
-      publishIfAbsent: () => Promise.reject(new Error('unreachable')),
-      listPublications: () => Promise.reject(new Error('unreachable')),
+      findPublication: () => failure,
+      loadSelectionSnapshot: () => Effect.die('unreachable'),
+      publishIfAbsent: () => Effect.die('unreachable'),
+      listPublications: () => Effect.die('unreachable'),
     };
 
     const { response, body } = await get(
@@ -115,6 +140,14 @@ describe('GET /api/quote/today', () => {
     expect(response.status).toBe(500);
     expect(ErrorDto.parse(body).error.code).toBe('internal_error');
     expect(JSON.stringify(body)).not.toContain('secret');
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'ERROR',
+        message: 'Request failed',
+        cause: expect.stringContaining('secret table detail'),
+        annotations: { route: '/api/quote/today' },
+      }),
+    );
   });
 });
 

@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { COLLECTION, type CollectionEntry } from '@somequote/content';
-import { ensurePublication, parsePublicationDate } from '@somequote/domain';
+import { parsePublicationDate } from '@somequote/domain';
+import { ensurePublication } from '@somequote/domain/publication';
+import { Effect } from 'effect';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetDatabase } from '../test-support';
 import { D1QuoteRepository } from './d1-quote-repository';
@@ -39,13 +41,13 @@ describe('seeding the curated collection', () => {
 
   it('disables quotes removed from the collection without touching their history', async () => {
     await seed(COLLECTION);
-    const published = await ensurePublication({ repository, date: today });
+    const published = await Effect.runPromise(ensurePublication({ repository, date: today }));
 
     await seed(COLLECTION.filter((entry) => entry.quote.id !== published.quote.id));
 
     const removed = (await rows()).find((row) => row.id === published.quote.id);
     expect(removed?.enabled).toBe(0);
-    expect(await repository.findPublication(today)).toEqual(published);
+    expect(await Effect.runPromise(repository.findPublication(today))).toEqual(published);
   });
 
   it('applies text corrections in place', async () => {

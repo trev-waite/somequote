@@ -2,11 +2,15 @@ import {
   CATEGORIES,
   isPublicationDate,
   isQuoteId,
-  type Publication,
-  type QuoteRepository,
   type QuoteUsage,
   type SelectionSnapshot,
 } from '@somequote/domain';
+import {
+  type Publication,
+  type QuoteRepository,
+  QuoteStoreError,
+} from '@somequote/domain/publication';
+import { Effect } from 'effect';
 import { z } from 'zod/mini';
 import { branded } from '../../shared/branded';
 
@@ -87,6 +91,13 @@ const SELECT_PUBLICATION = `
   FROM publications AS p
   JOIN quotes AS q ON q.id = p.quote_id`;
 
+function query<A>(operation: string, run: () => Promise<A>): Effect.Effect<A, QuoteStoreError> {
+  return Effect.tryPromise({
+    try: run,
+    catch: (cause) => new QuoteStoreError({ operation, cause }),
+  });
+}
+
 /**
  * `QuoteRepository` on Cloudflare D1. A `batch` runs as one SQL transaction, which is what makes
  * the snapshot consistent and the insert-then-read in `publishIfAbsent` atomic.
@@ -98,82 +109,96 @@ export class D1QuoteRepository implements QuoteRepository {
     this.#db = db;
   }
 
-  async findPublication(date: Publication['date']): Promise<Publication | null> {
-    const row = await this.#db
-      .prepare(`${SELECT_PUBLICATION} WHERE p.publish_date = ?1`)
-      .bind(date)
-      .first();
-    return row === null ? null : PublicationRow.parse(row);
+  findPublication(date: Publication['date']): Effect.Effect<Publication | null, QuoteStoreError> {
+    return query('findPublication', async () => {
+      const row = await this.#db
+        .prepare(`${SELECT_PUBLICATION} WHERE p.publish_date = ?1`)
+        .bind(date)
+        .first();
+      return row === null ? null : PublicationRow.parse(row);
+    });
   }
 
-  async loadSelectionSnapshot({
+  loadSelectionSnapshot({
     recentLimit,
   }: {
     readonly recentLimit: number;
-  }): Promise<SelectionSnapshot> {
-    const [usage, count, recent] = await this.#db.batch([
-      this.#db.prepare(`
-        SELECT q.id, q.category,
-          COUNT(p.publish_date) AS times_published,
-          MAX(p.publish_date) AS last_published_on
-        FROM quotes AS q
-        LEFT JOIN publications AS p ON p.quote_id = q.id
-        WHERE q.enabled = 1
-        GROUP BY q.id`),
-      this.#db.prepare('SELECT COUNT(*) AS published_count FROM publications'),
-      this.#db
-        .prepare(`
-          SELECT q.category
-          FROM publications AS p
-          JOIN quotes AS q ON q.id = p.quote_id
-          ORDER BY p.publish_date DESC
-          LIMIT ?1`)
-        .bind(recentLimit),
-    ]);
-    return {
-      candidates: z.array(UsageRow).parse(usage?.results),
-      publishedCount: CountRow.parse(count?.results[0]).published_count,
-      recentCategories: z
-        .array(CategoryRow)
-        .parse(recent?.results)
-        .map((row) => row.category),
-    };
+  }): Effect.Effect<SelectionSnapshot, QuoteStoreError> {
+    return query('loadSelectionSnapshot', async () => {
+      const [usage, count, recent] = await this.#db.batch([
+        this.#db.prepare(`
+          SELECT q.id, q.category,
+            COUNT(p.publish_date) AS times_published,
+            MAX(p.publish_date) AS last_published_on
+          FROM quotes AS q
+          LEFT JOIN publications AS p ON p.quote_id = q.id
+          WHERE q.enabled = 1
+          GROUP BY q.id`),
+        this.#db.prepare('SELECT COUNT(*) AS published_count FROM publications'),
+        this.#db
+          .prepare(`
+            SELECT q.category
+            FROM publications AS p
+            JOIN quotes AS q ON q.id = p.quote_id
+            ORDER BY p.publish_date DESC
+            LIMIT ?1`)
+          .bind(recentLimit),
+      ]);
+      return {
+        candidates: z.array(UsageRow).parse(usage?.results),
+        publishedCount: CountRow.parse(count?.results[0]).published_count,
+        recentCategories: z
+          .array(CategoryRow)
+          .parse(recent?.results)
+          .map((row) => row.category),
+      };
+    });
   }
 
-  async publishIfAbsent({
+  publishIfAbsent({
     date,
     quoteId,
-  }: Parameters<QuoteRepository['publishIfAbsent']>[0]): Promise<Publication | null> {
-    const [, current] = await this.#db.batch([
-      this.#db
-        .prepare(`
-          INSERT INTO publications (publish_date, quote_id)
-          SELECT ?1, id FROM quotes WHERE id = ?2 AND enabled = 1
-          ON CONFLICT (publish_date) DO NOTHING`)
-        .bind(date, quoteId),
-      this.#db.prepare(`${SELECT_PUBLICATION} WHERE p.publish_date = ?1`).bind(date),
-    ]);
-    const row = current?.results[0];
-    return row === undefined ? null : PublicationRow.parse(row);
+  }: Parameters<QuoteRepository['publishIfAbsent']>[0]): Effect.Effect<
+    Publication | null,
+    QuoteStoreError
+  > {
+    return query('publishIfAbsent', async () => {
+      const [, current] = await this.#db.batch([
+        this.#db
+          .prepare(`
+            INSERT INTO publications (publish_date, quote_id)
+            SELECT ?1, id FROM quotes WHERE id = ?2 AND enabled = 1
+            ON CONFLICT (publish_date) DO NOTHING`)
+          .bind(date, quoteId),
+        this.#db.prepare(`${SELECT_PUBLICATION} WHERE p.publish_date = ?1`).bind(date),
+      ]);
+      const row = current?.results[0];
+      return row === undefined ? null : PublicationRow.parse(row);
+    });
   }
 
-  async listPublications({
+  listPublications({
     before,
     limit,
-  }: Parameters<QuoteRepository['listPublications']>[0]): Promise<Publication[]> {
-    const statement =
-      before === null
-        ? this.#db
-            .prepare(`${SELECT_PUBLICATION} ORDER BY p.publish_date DESC LIMIT ?1`)
-            .bind(limit)
-        : this.#db
-            .prepare(`
-              ${SELECT_PUBLICATION}
-              WHERE p.publish_date < ?1
-              ORDER BY p.publish_date DESC
-              LIMIT ?2`)
-            .bind(before, limit);
-    const { results } = await statement.all();
-    return z.array(PublicationRow).parse(results);
+  }: Parameters<QuoteRepository['listPublications']>[0]): Effect.Effect<
+    Publication[],
+    QuoteStoreError
+  > {
+    return query('listPublications', async () => {
+      const statement =
+        before === null
+          ? this.#db
+              .prepare(`${SELECT_PUBLICATION} ORDER BY p.publish_date DESC LIMIT ?1`)
+              .bind(limit)
+          : this.#db
+              .prepare(`
+                ${SELECT_PUBLICATION}
+                WHERE p.publish_date < ?1
+                ORDER BY p.publish_date DESC
+                LIMIT ?2`)
+              .bind(before, limit);
+      const { results } = await statement.all();
+      return z.array(PublicationRow).parse(results);
+    });
   }
 }

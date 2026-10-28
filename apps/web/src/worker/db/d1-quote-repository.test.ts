@@ -1,14 +1,18 @@
 import { env } from 'cloudflare:workers';
 import {
   addDays,
-  ensurePublication,
-  NoEligibleQuoteError,
   type PublicationDate,
   parsePublicationDate,
-  type QuoteRepository,
   ROTATION_LENGTH,
 } from '@somequote/domain';
+import {
+  ensurePublication,
+  NoEligibleQuoteError,
+  type QuoteRepository,
+  QuoteStoreError,
+} from '@somequote/domain/publication';
 import { seededRandom } from '@somequote/domain/testing';
+import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   bibleVerse,
@@ -28,7 +32,9 @@ async function publishDays(days: number, from: PublicationDate = firstDay, seed 
   const random = seededRandom(seed);
   const published = [];
   for (let day = 0; day < days; day++) {
-    published.push(await ensurePublication({ repository, date: addDays(from, day), random }));
+    published.push(
+      await Effect.runPromise(ensurePublication({ repository, date: addDays(from, day), random })),
+    );
   }
   return published;
 }
@@ -41,13 +47,13 @@ describe('publishing a day', () => {
   it('gives every caller the same quote for the same day', async () => {
     await insertQuotes(quotes('general', 20, generalQuote));
 
-    const first = await ensurePublication({ repository, date: firstDay, random: seededRandom(1) });
+    const first = await Effect.runPromise(
+      ensurePublication({ repository, date: firstDay, random: seededRandom(1) }),
+    );
     for (let visitor = 2; visitor <= 10; visitor++) {
-      const again = await ensurePublication({
-        repository,
-        date: firstDay,
-        random: seededRandom(visitor),
-      });
+      const again = await Effect.runPromise(
+        ensurePublication({ repository, date: firstDay, random: seededRandom(visitor) }),
+      );
       expect(again).toEqual(first);
     }
     expect(await publicationRows()).toHaveLength(1);
@@ -68,11 +74,13 @@ describe('publishing a day', () => {
 
     const results = await Promise.all(
       Array.from({ length: 25 }, (_, caller) =>
-        ensurePublication({
-          repository: countingRepository,
-          date: firstDay,
-          random: seededRandom(100 + caller),
-        }),
+        Effect.runPromise(
+          ensurePublication({
+            repository: countingRepository,
+            date: firstDay,
+            random: seededRandom(100 + caller),
+          }),
+        ),
       ),
     );
 
@@ -89,20 +97,19 @@ describe('publishing a day', () => {
       findPublication: (date) => repository.findPublication(date),
       loadSelectionSnapshot: (options) => repository.loadSelectionSnapshot(options),
       listPublications: (query) => repository.listPublications(query),
-      async publishIfAbsent(input) {
-        if (!interfered) {
-          interfered = true;
-          await setEnabled([input.quoteId], false);
-        }
-        return repository.publishIfAbsent(input);
-      },
+      publishIfAbsent: (input) =>
+        Effect.gen(function* () {
+          if (!interfered) {
+            interfered = true;
+            yield* Effect.promise(() => setEnabled([input.quoteId], false));
+          }
+          return yield* repository.publishIfAbsent(input);
+        }),
     };
 
-    const publication = await ensurePublication({
-      repository: racingRepository,
-      date: firstDay,
-      random: seededRandom(3),
-    });
+    const publication = await Effect.runPromise(
+      ensurePublication({ repository: racingRepository, date: firstDay, random: seededRandom(3) }),
+    );
 
     const [disabled] = (
       await env.DB.prepare('SELECT id FROM quotes WHERE enabled = 0').all<{ id: string }>()
@@ -134,7 +141,7 @@ describe('history-driven selection', () => {
     await insertQuotes(quotes('general', 4, generalQuote));
     const published = await publishDays(10);
 
-    const snapshot = await repository.loadSelectionSnapshot({ recentLimit: 4 });
+    const snapshot = await Effect.runPromise(repository.loadSelectionSnapshot({ recentLimit: 4 }));
 
     expect(snapshot.publishedCount).toBe(10);
     for (const usage of snapshot.candidates) {
@@ -164,8 +171,12 @@ describe('history-driven selection', () => {
 
     await setEnabled([first.quote.id], false);
 
-    expect(await ensurePublication({ repository, date: firstDay })).toEqual(first);
-    expect(await repository.listPublications({ before: null, limit: 10 })).toEqual([first]);
+    expect(await Effect.runPromise(ensurePublication({ repository, date: firstDay }))).toEqual(
+      first,
+    );
+    expect(
+      await Effect.runPromise(repository.listPublications({ before: null, limit: 10 })),
+    ).toEqual([first]);
   });
 
   it('fills Bible slots with general quotes while no verse is enabled', async () => {
@@ -181,10 +192,23 @@ describe('history-driven selection', () => {
     await insertQuotes(quotes('general', 2, generalQuote));
     await setEnabled(['general-1', 'general-2'], false);
 
-    await expect(ensurePublication({ repository, date: firstDay })).rejects.toBeInstanceOf(
-      NoEligibleQuoteError,
+    const error = await Effect.runPromise(
+      Effect.flip(ensurePublication({ repository, date: firstDay })),
     );
+
+    expect(error).toBeInstanceOf(NoEligibleQuoteError);
     expect(await publicationRows()).toEqual([]);
+  });
+
+  it('reports a storage failure as a typed error naming the operation', async () => {
+    await env.DB.prepare('DROP TABLE publications').run();
+
+    const error = await Effect.runPromise(
+      Effect.flip(ensurePublication({ repository, date: firstDay })),
+    );
+
+    expect(error).toBeInstanceOf(QuoteStoreError);
+    expect(error).toMatchObject({ operation: 'findPublication' });
   });
 });
 
@@ -202,7 +226,7 @@ describe('history pagination', () => {
     const prepare = vi.spyOn(env.DB, 'prepare');
     let sql: string | undefined;
     try {
-      const page = await repository.listPublications({ before, limit: 3 });
+      const page = await Effect.runPromise(repository.listPublications({ before, limit: 3 }));
       expect(page.map((item) => item.date)).toEqual(['2000-01-09', '2000-01-08', '2000-01-07']);
       sql = prepare.mock.calls[0]?.[0];
     } finally {
@@ -213,7 +237,7 @@ describe('history pagination', () => {
     const { meta } = await env.DB.prepare(sql).bind(before, 3).all();
 
     expect(meta.rows_read).toBeLessThan(30);
-    const newest = await repository.listPublications({ before: null, limit: 3 });
+    const newest = await Effect.runPromise(repository.listPublications({ before: null, limit: 3 }));
     expect(newest.map((item) => item.date)).toEqual(
       [4095, 4094, 4093].map((day) => addDays(parsePublicationDate('2000-01-01'), day)),
     );

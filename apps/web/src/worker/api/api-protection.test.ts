@@ -143,14 +143,20 @@ describe('shared API caching', () => {
     expect(repositoryFor).toHaveBeenCalledTimes(2);
   });
 
-  it('continues serving publications when the cache is unavailable', async () => {
+  it('continues serving publications when the cache is unavailable, and warns about it', async () => {
     vi.spyOn(cache, 'match').mockRejectedValue(new Error('cache read unavailable'));
     vi.spyOn(cache, 'put').mockRejectedValue(new Error('cache write unavailable'));
+    const logWarning = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const { response, body } = await request('/api/quote/today');
 
     expect(response.status).toBe(200);
     expect(PublicationDto.parse(body).date).toBe('2026-10-18');
+    expect(logWarning.mock.calls.map(([entry]) => entry.annotations.operation)).toEqual([
+      'match',
+      'put',
+    ]);
+    logWarning.mockRestore();
   });
 });
 

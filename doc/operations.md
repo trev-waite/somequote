@@ -36,6 +36,19 @@ Set these as secrets of the `prod` environment in Settings → Environments, whi
 
 Both tokens expire on **October 21, 2027**. Renew them in Cloudflare and update the secrets before then.
 
+## Monitoring
+
+The Worker writes structured logs to Workers Logs, at the level of the console method it uses. Filter by `level` and `message`; context is under `annotations`.
+
+| Level | `message` | Means |
+| --- | --- | --- |
+| `INFO` | `Published a quote` | A request or the cron recorded a day's quote (`date`, `quoteId`) |
+| `INFO` | `Publication ensured` | The cron finished (`cron`, `date`, `quoteId`) |
+| `WARN` | `Chosen quote was disabled before it could be published` | Selection raced an edit and retried |
+| `WARN` | `Publication cache unavailable` | The edge cache failed (`operation`); responses still come from D1 |
+| `ERROR` | `Request failed` | An API request answered 500 or 503 (`route`); `cause` has the error and its source |
+| `ERROR` | `Scheduled publication failed` | The cron failed and Cloudflare records the run as failed |
+
 ## Limits
 
 The Free plans allow 100,000 Worker requests per day and 5 million D1 rows read per day. Hitting either causes failures, not charges. Upgrade to Workers Paid if traffic approaches them.
