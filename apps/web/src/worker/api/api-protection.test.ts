@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { publicationDateAt } from '@somequote/domain';
 import { seededRandom } from '@somequote/domain/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ErrorDto, HistoryDto, PublicationDto } from '../../shared/api-contract';
 import { D1QuoteRepository } from '../db/d1-quote-repository';
 import { generalQuote, insertQuotes, quotes, resetDatabase } from '../test-support';
@@ -147,6 +147,7 @@ describe('shared API caching', () => {
     vi.spyOn(cache, 'match').mockRejectedValue(new Error('cache read unavailable'));
     vi.spyOn(cache, 'put').mockRejectedValue(new Error('cache write unavailable'));
     const logWarning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => logWarning.mockRestore());
 
     const { response, body } = await request('/api/quote/today');
 
@@ -156,7 +157,6 @@ describe('shared API caching', () => {
       'match',
       'put',
     ]);
-    logWarning.mockRestore();
   });
 });
 

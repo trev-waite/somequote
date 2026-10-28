@@ -7,6 +7,7 @@ import {
 } from '@somequote/domain';
 import {
   type Publication,
+  type PublishOutcome,
   type QuoteRepository,
   QuoteStoreError,
 } from '@somequote/domain/publication';
@@ -159,11 +160,11 @@ export class D1QuoteRepository implements QuoteRepository {
     date,
     quoteId,
   }: Parameters<QuoteRepository['publishIfAbsent']>[0]): Effect.Effect<
-    Publication | null,
+    PublishOutcome | null,
     QuoteStoreError
   > {
     return query('publishIfAbsent', async () => {
-      const [, current] = await this.#db.batch([
+      const [insert, current] = await this.#db.batch([
         this.#db
           .prepare(`
             INSERT INTO publications (publish_date, quote_id)
@@ -173,7 +174,9 @@ export class D1QuoteRepository implements QuoteRepository {
         this.#db.prepare(`${SELECT_PUBLICATION} WHERE p.publish_date = ?1`).bind(date),
       ]);
       const row = current?.results[0];
-      return row === undefined ? null : PublicationRow.parse(row);
+      return row === undefined
+        ? null
+        : { publication: PublicationRow.parse(row), recorded: insert?.meta.changes === 1 };
     });
   }
 

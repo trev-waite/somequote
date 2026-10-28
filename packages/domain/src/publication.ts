@@ -8,6 +8,11 @@ export interface Publication {
   readonly quote: Quote;
 }
 
+export interface PublishOutcome {
+  readonly publication: Publication;
+  readonly recorded: boolean;
+}
+
 /** Storage could not be reached, or returned data it should never hold. */
 export class QuoteStoreError extends Data.TaggedError('QuoteStoreError')<{
   readonly operation: string;
@@ -31,12 +36,12 @@ export interface QuoteRepository {
   /**
    * Atomically records `quoteId` for `date` unless the date already has a publication or the quote
    * is no longer enabled. Succeeds with whichever publication holds the date afterwards, possibly a
-   * concurrent writer's, or `null` if the date is still empty.
+   * concurrent writer's, and whether this call recorded it, or `null` if the date is still empty.
    */
   publishIfAbsent(input: {
     readonly date: PublicationDate;
     readonly quoteId: QuoteId;
-  }): Effect.Effect<Publication | null, QuoteStoreError>;
+  }): Effect.Effect<PublishOutcome | null, QuoteStoreError>;
 
   /** Newest first, strictly before `before` when it is set. */
   listPublications(query: {
@@ -83,14 +88,14 @@ export const ensurePublication = Effect.fn('ensurePublication')(function* ({
     const quoteId = selectQuote(snapshot, random);
     if (quoteId === null) return yield* new NoEligibleQuoteError();
 
-    const publication = yield* repository.publishIfAbsent({ date, quoteId });
-    if (publication) {
-      if (publication.quote.id === quoteId) {
+    const outcome = yield* repository.publishIfAbsent({ date, quoteId });
+    if (outcome) {
+      if (outcome.recorded) {
         yield* Effect.logInfo('Published a quote').pipe(
           Effect.annotateLogs({ date, quoteId, attempt }),
         );
       }
-      return publication;
+      return outcome.publication;
     }
     yield* Effect.logWarning('Chosen quote was disabled before it could be published').pipe(
       Effect.annotateLogs({ date, quoteId, attempt }),

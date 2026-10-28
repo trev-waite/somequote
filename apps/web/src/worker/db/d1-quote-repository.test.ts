@@ -3,6 +3,7 @@ import {
   addDays,
   type PublicationDate,
   parsePublicationDate,
+  parseQuoteId,
   ROTATION_LENGTH,
 } from '@somequote/domain';
 import {
@@ -62,13 +63,20 @@ describe('publishing a day', () => {
   it('converges concurrent publishers on one stored publication', async () => {
     await insertQuotes(quotes('general', 40, generalQuote));
     const attempted = new Set<string>();
+    let recorded = 0;
     const countingRepository: QuoteRepository = {
       findPublication: (date) => repository.findPublication(date),
       loadSelectionSnapshot: (options) => repository.loadSelectionSnapshot(options),
       listPublications: (query) => repository.listPublications(query),
       publishIfAbsent(input) {
         attempted.add(input.quoteId);
-        return repository.publishIfAbsent(input);
+        return repository.publishIfAbsent(input).pipe(
+          Effect.tap((outcome) =>
+            Effect.sync(() => {
+              if (outcome?.recorded) recorded++;
+            }),
+          ),
+        );
       },
     };
 
@@ -86,8 +94,20 @@ describe('publishing a day', () => {
 
     const ids = new Set(results.map((publication) => publication.quote.id));
     expect(attempted.size).toBeGreaterThan(1);
+    expect(recorded).toBe(1);
     expect(ids.size).toBe(1);
     expect(await publicationRows()).toEqual([{ publish_date: firstDay, quote_id: [...ids][0] }]);
+  });
+
+  it('reports only the call that recorded a publication, even for the same quote', async () => {
+    await insertQuotes(quotes('general', 1, generalQuote));
+    const input = { date: firstDay, quoteId: parseQuoteId('general-1') };
+
+    const first = await Effect.runPromise(repository.publishIfAbsent(input));
+    const second = await Effect.runPromise(repository.publishIfAbsent(input));
+
+    expect(first?.recorded).toBe(true);
+    expect(second).toEqual({ publication: first?.publication, recorded: false });
   });
 
   it('retries with another quote when the chosen one is disabled before it is recorded', async () => {
