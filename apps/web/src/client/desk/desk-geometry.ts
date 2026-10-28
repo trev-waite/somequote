@@ -126,8 +126,8 @@ function note(): Part[] {
       text: 'until the next quote',
       transform: planeMatrix(noteAt(0, 0, NOTE.z), noteU, noteV),
       x: NOTE.w / 2,
-      y: NOTE.d / 2 + 2.6,
-      size: 8,
+      y: NOTE.d / 2 + 2.4,
+      size: 7.5,
     },
   ];
 }
