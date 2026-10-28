@@ -112,7 +112,6 @@ export const Book = memo(function Book({ motion, controls, above }: BookProps) {
                   // biome-ignore lint/suspicious/noArrayIndexKey: the mesh has fixed panel indices
                   <DeskPart key={index} part={part} />
                 ))}
-                <path className="iso-line" data-tone="mid" d={drawing.sheet.outline} />
                 <path className="iso-line" data-tone="lo" d={drawing.sheet.writing} />
               </g>
             )}

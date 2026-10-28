@@ -108,7 +108,7 @@ function grain(): Part[] {
   );
 }
 
-const NOTE = { x: 30, y: -15, w: 66, d: 22, z: 0.5, turn: (4 * Math.PI) / 180 } as const;
+const NOTE = { x: 30, y: -18, w: 66, d: 22, z: 0.5, turn: (4 * Math.PI) / 180 } as const;
 const noteU: Vec3 = [Math.cos(NOTE.turn), Math.sin(NOTE.turn), 0];
 const noteV: Vec3 = [-Math.sin(NOTE.turn), Math.cos(NOTE.turn), 0];
 const noteAt = (u: number, v: number, z: number): Vec3 =>
@@ -126,8 +126,8 @@ function note(): Part[] {
       text: 'until the next quote',
       transform: planeMatrix(noteAt(0, 0, NOTE.z), noteU, noteV),
       x: NOTE.w / 2,
-      y: NOTE.d / 2 + 2.3,
-      size: 7.2,
+      y: NOTE.d / 2 + 2.6,
+      size: 8,
     },
   ];
 }
