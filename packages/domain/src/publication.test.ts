@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   ensurePublication,
   historyCursor,
+  listHistory,
   NoEligibleQuoteError,
+  type Publication,
   PublicationContendedError,
   type QuoteRepository,
 } from './publication';
-import { parsePublicationDate } from './publication-clock';
+import { addDays, parsePublicationDate } from './publication-clock';
 import { parseQuoteId } from './quote';
 import type { QuoteUsage } from './selection';
 
@@ -46,6 +48,63 @@ describe('ensurePublication', () => {
 
     expect(error).toBeInstanceOf(PublicationContendedError);
     expect(error).toMatchObject({ date: today, attempts: 3 });
+  });
+});
+
+describe('listHistory', () => {
+  const publishedOn = (date: Publication['date']): Publication => ({
+    date,
+    quote: {
+      category: 'general',
+      id: parseQuoteId(`quote-${date}`),
+      text: 'Text.',
+      author: 'An Author',
+      source: 'A Book',
+    },
+  });
+
+  function recordingRepository(stored: readonly Publication[]) {
+    const calls: string[] = [];
+    const repository: QuoteRepository = {
+      findPublication: (date) => {
+        calls.push('findPublication');
+        return Effect.succeed(stored.find((publication) => publication.date === date) ?? null);
+      },
+      loadSelectionSnapshot: () => Effect.die('unreachable'),
+      publishIfAbsent: () => Effect.die('unreachable'),
+      listPublications: ({ before, limit }) => {
+        calls.push('listPublications');
+        return Effect.succeed(
+          stored
+            .filter((publication) => before === null || publication.date < before)
+            .slice(0, limit),
+        );
+      },
+    };
+    return { repository, calls };
+  }
+
+  it('reads a page that already includes today in one query', async () => {
+    const { repository, calls } = recordingRepository([
+      publishedOn(today),
+      publishedOn(addDays(today, -1)),
+    ]);
+
+    const page = await Effect.runPromise(listHistory({ repository, today, limit: 10 }));
+
+    expect(page.publications.map((publication) => publication.date)).toEqual([
+      today,
+      addDays(today, -1),
+    ]);
+    expect(calls).toEqual(['listPublications']);
+  });
+
+  it('reads an older page without checking today', async () => {
+    const { repository, calls } = recordingRepository([publishedOn(addDays(today, -2))]);
+
+    await Effect.runPromise(listHistory({ repository, today, before: today, limit: 10 }));
+
+    expect(calls).toEqual(['listPublications']);
   });
 });
 

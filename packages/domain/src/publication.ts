@@ -118,7 +118,10 @@ export function historyCursor(
   return before !== undefined && before < tomorrow ? before : tomorrow;
 }
 
-/** Newest first. Publishes today first, so history includes it before anyone has asked for it. */
+/**
+ * Newest first. A page that covers today publishes it first if needed, so history includes it
+ * before anyone has asked for it.
+ */
 export const listHistory = Effect.fn('listHistory')(function* ({
   repository,
   today,
@@ -132,11 +135,12 @@ export const listHistory = Effect.fn('listHistory')(function* ({
   readonly limit: number;
   readonly random?: Random;
 }): Effect.fn.Return<HistoryPage, PublicationError> {
-  yield* ensurePublication({ repository, date: today, random });
-  const page = yield* repository.listPublications({
-    before: historyCursor(today, before),
-    limit: limit + 1,
-  });
+  const query = { before: historyCursor(today, before), limit: limit + 1 };
+  let page = yield* repository.listPublications(query);
+  if (query.before > today && page[0]?.date !== today) {
+    yield* ensurePublication({ repository, date: today, random });
+    page = yield* repository.listPublications(query);
+  }
   const publications = page.slice(0, limit);
   return {
     publications,

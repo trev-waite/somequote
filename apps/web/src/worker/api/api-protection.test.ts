@@ -1,3 +1,4 @@
+import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { publicationDateAt } from '@somequote/domain';
 import { seededRandom } from '@somequote/domain/testing';
@@ -15,12 +16,16 @@ const repositoryFor = vi.fn((bindings: Env) => new D1QuoteRepository(bindings.DB
 const limit = vi.fn<RateLimit['limit']>();
 
 async function request(path: string, headers?: HeadersInit) {
+  const ctx = createExecutionContext();
   const response = await app.request(
     `https://somequote.test${path}`,
     { headers: { 'CF-Connecting-IP': '203.0.113.7', ...headers } },
     { ...env, API_RATE_LIMITER: { limit } },
+    ctx,
   );
-  return { response, body: (await response.json()) as unknown };
+  const body = (await response.json()) as unknown;
+  await waitOnExecutionContext(ctx);
+  return { response, body };
 }
 
 beforeEach(async () => {
@@ -141,6 +146,27 @@ describe('shared API caching', () => {
     const success = await request('/api/quote/today');
     expect(success.response.status).toBe(200);
     expect(repositoryFor).toHaveBeenCalledTimes(2);
+  });
+
+  it('answers without waiting for the cache write to finish', async () => {
+    let finishWrite = () => {};
+    vi.spyOn(cache, 'put').mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishWrite = resolve;
+      }),
+    );
+    const ctx = createExecutionContext();
+
+    const response = await app.request(
+      'https://somequote.test/api/quote/today',
+      { headers: { 'CF-Connecting-IP': '203.0.113.7' } },
+      { ...env, API_RATE_LIMITER: { limit } },
+      ctx,
+    );
+
+    expect(response.status).toBe(200);
+    finishWrite();
+    await waitOnExecutionContext(ctx);
   });
 
   it('continues serving publications when the cache is unavailable, and warns about it', async () => {

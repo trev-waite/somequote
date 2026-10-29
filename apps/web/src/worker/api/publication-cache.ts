@@ -12,6 +12,7 @@ interface PublicationResponseOptions<E> {
   readonly now: () => Date;
   readonly cache: Cache | undefined;
   readonly load: Effect.Effect<PublicationDto | HistoryDto, E>;
+  readonly inBackground: (task: Effect.Effect<unknown>) => void;
 }
 
 export function publicationResponse<E>({
@@ -22,6 +23,7 @@ export function publicationResponse<E>({
   now,
   cache,
   load,
+  inBackground,
 }: PublicationResponseOptions<E>): Effect.Effect<Response, E> {
   return Effect.gen(function* () {
     const key = new URL(path, url);
@@ -49,7 +51,8 @@ export function publicationResponse<E>({
     const servedAt = now();
     setCacheHeaders(response, servedAt, expiresAt);
     if (cache && expiresAt.getTime() - servedAt.getTime() >= 1000) {
-      yield* bestEffort('put', () => cache.put(key.toString(), response.clone()));
+      const copy = response.clone();
+      inBackground(bestEffort('put', () => cache.put(key.toString(), copy)));
     }
     return response;
   });

@@ -9,6 +9,7 @@ import { Effect } from 'effect';
 import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import { HistoryQuery } from '../../shared/api-contract';
+import { runLogged } from '../logging';
 import { toHistoryDto, toPublicationDto } from './dto';
 import { errorResponse, respond } from './errors';
 import { publicationResponse } from './publication-cache';
@@ -44,6 +45,7 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
         at,
         now,
         cache: cacheFor?.(),
+        inBackground: (task) => c.executionCtx.waitUntil(runLogged(task)),
         load: Effect.suspend(() =>
           ensurePublication({
             repository: repositoryFor(c.env),
@@ -79,6 +81,7 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
         at,
         now,
         cache: cacheFor?.(),
+        inBackground: (task) => c.executionCtx.waitUntil(runLogged(task)),
         load: Effect.suspend(() =>
           listHistory({ repository: repositoryFor(c.env), today, before, limit, random }),
         ).pipe(Effect.map(toHistoryDto)),
