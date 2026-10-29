@@ -1,13 +1,4 @@
 export {
-  ensurePublication,
-  type HistoryPage,
-  historyCursor,
-  listHistory,
-  NoEligibleQuoteError,
-  type Publication,
-  type QuoteRepository,
-} from './publication';
-export {
   addDays,
   isPublicationDate,
   nextPublicationAt,

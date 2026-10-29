@@ -1,17 +1,17 @@
+import { publicationDateAt, type Random } from '@somequote/domain';
 import {
   ensurePublication,
   historyCursor,
   listHistory,
-  NoEligibleQuoteError,
-  publicationDateAt,
   type QuoteRepository,
-  type Random,
-} from '@somequote/domain';
+} from '@somequote/domain/publication';
+import { Effect } from 'effect';
 import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import { HistoryQuery } from '../../shared/api-contract';
+import { runLogged } from '../logging';
 import { toHistoryDto, toPublicationDto } from './dto';
-import { errorResponse } from './errors';
+import { errorResponse, respond } from './errors';
 import { publicationResponse } from './publication-cache';
 import { rateLimit } from './rate-limit';
 
@@ -36,22 +36,25 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
 
   app.get('/quote/today', async (c) => {
     const at = now();
-    return publicationResponse({
-      url: c.req.url,
-      path: '/api/quote/today',
-      parameters: new URLSearchParams(),
-      at,
-      now,
-      cache: cacheFor?.(),
-      load: async () => {
-        const publication = await ensurePublication({
-          repository: repositoryFor(c.env),
-          date: publicationDateAt(at),
-          random,
-        });
-        return toPublicationDto(publication);
-      },
-    });
+    return respond(
+      c,
+      publicationResponse({
+        url: c.req.url,
+        path: '/api/quote/today',
+        parameters: new URLSearchParams(),
+        at,
+        now,
+        cache: cacheFor?.(),
+        inBackground: (task) => c.executionCtx.waitUntil(runLogged(task)),
+        load: Effect.suspend(() =>
+          ensurePublication({
+            repository: repositoryFor(c.env),
+            date: publicationDateAt(at),
+            random,
+          }),
+        ).pipe(Effect.map(toPublicationDto)),
+      }),
+    );
   });
 
   app.get('/quotes/history', async (c) => {
@@ -69,41 +72,26 @@ export function createApp({ repositoryFor, now, random, cacheFor }: AppDependenc
     const at = now();
     const today = publicationDateAt(at);
     const before = historyCursor(today, query.data.before);
-    return publicationResponse({
-      url: c.req.url,
-      path: '/api/quotes/history',
-      parameters: new URLSearchParams({ limit: String(limit), before }),
-      at,
-      now,
-      cache: cacheFor?.(),
-      load: async () => {
-        const page = await listHistory({
-          repository: repositoryFor(c.env),
-          today,
-          before,
-          limit,
-          random,
-        });
-        return toHistoryDto(page);
-      },
-    });
+    return respond(
+      c,
+      publicationResponse({
+        url: c.req.url,
+        path: '/api/quotes/history',
+        parameters: new URLSearchParams({ limit: String(limit), before }),
+        at,
+        now,
+        cache: cacheFor?.(),
+        inBackground: (task) => c.executionCtx.waitUntil(runLogged(task)),
+        load: Effect.suspend(() =>
+          listHistory({ repository: repositoryFor(c.env), today, before, limit, random }),
+        ).pipe(Effect.map(toHistoryDto)),
+      }),
+    );
   });
 
   app.notFound((c) => errorResponse(c, 404, 'not_found', 'There is nothing at this address.'));
 
-  app.onError((error, c) => {
-    if (error instanceof NoEligibleQuoteError) {
-      return errorResponse(c, 503, 'no_quote_available', 'No quote is available right now.');
-    }
-    console.error(
-      JSON.stringify({
-        message: 'request failed',
-        path: c.req.path,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-    );
-    return errorResponse(c, 500, 'internal_error', 'Something went wrong.');
-  });
+  app.onError((error, c) => respond(c, Effect.die(error)));
 
   return app;
 }

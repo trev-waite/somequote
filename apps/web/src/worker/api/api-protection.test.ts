@@ -1,7 +1,8 @@
+import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { publicationDateAt } from '@somequote/domain';
 import { seededRandom } from '@somequote/domain/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ErrorDto, HistoryDto, PublicationDto } from '../../shared/api-contract';
 import { D1QuoteRepository } from '../db/d1-quote-repository';
 import { generalQuote, insertQuotes, quotes, resetDatabase } from '../test-support';
@@ -15,12 +16,16 @@ const repositoryFor = vi.fn((bindings: Env) => new D1QuoteRepository(bindings.DB
 const limit = vi.fn<RateLimit['limit']>();
 
 async function request(path: string, headers?: HeadersInit) {
+  const ctx = createExecutionContext();
   const response = await app.request(
     `https://somequote.test${path}`,
     { headers: { 'CF-Connecting-IP': '203.0.113.7', ...headers } },
     { ...env, API_RATE_LIMITER: { limit } },
+    ctx,
   );
-  return { response, body: (await response.json()) as unknown };
+  const body = (await response.json()) as unknown;
+  await waitOnExecutionContext(ctx);
+  return { response, body };
 }
 
 beforeEach(async () => {
@@ -143,14 +148,41 @@ describe('shared API caching', () => {
     expect(repositoryFor).toHaveBeenCalledTimes(2);
   });
 
-  it('continues serving publications when the cache is unavailable', async () => {
+  it('answers without waiting for the cache write to finish', async () => {
+    let finishWrite = () => {};
+    vi.spyOn(cache, 'put').mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishWrite = resolve;
+      }),
+    );
+    const ctx = createExecutionContext();
+
+    const response = await app.request(
+      'https://somequote.test/api/quote/today',
+      { headers: { 'CF-Connecting-IP': '203.0.113.7' } },
+      { ...env, API_RATE_LIMITER: { limit } },
+      ctx,
+    );
+
+    expect(response.status).toBe(200);
+    finishWrite();
+    await waitOnExecutionContext(ctx);
+  });
+
+  it('continues serving publications when the cache is unavailable, and warns about it', async () => {
     vi.spyOn(cache, 'match').mockRejectedValue(new Error('cache read unavailable'));
     vi.spyOn(cache, 'put').mockRejectedValue(new Error('cache write unavailable'));
+    const logWarning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => logWarning.mockRestore());
 
     const { response, body } = await request('/api/quote/today');
 
     expect(response.status).toBe(200);
     expect(PublicationDto.parse(body).date).toBe('2026-10-18');
+    expect(logWarning.mock.calls.map(([entry]) => entry.annotations.operation)).toEqual([
+      'match',
+      'put',
+    ]);
   });
 });
 

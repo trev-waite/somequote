@@ -1,6 +1,9 @@
-import { ensurePublication, publicationDateAt } from '@somequote/domain';
+import { publicationDateAt } from '@somequote/domain';
+import { ensurePublication } from '@somequote/domain/publication';
+import { Effect } from 'effect';
 import { createApp } from './api/app';
 import { D1QuoteRepository } from './db/d1-quote-repository';
+import { runLogged } from './logging';
 import { notFoundResponse } from './not-found';
 
 const repositoryFor = (env: Env) => new D1QuoteRepository(env.DB);
@@ -21,20 +24,19 @@ export default {
     return notFoundResponse(request, env.ASSETS);
   },
 
-  async scheduled(controller, env) {
+  scheduled(controller, env) {
     const date = publicationDateAt(new Date(controller.scheduledTime));
-    const publication = await ensurePublication({
-      repository: repositoryFor(env),
-      date,
-      random: Math.random,
-    });
-    console.log(
-      JSON.stringify({
-        message: 'publication ensured',
-        cron: controller.cron,
-        date,
-        quoteId: publication.quote.id,
-      }),
+    return runLogged(
+      ensurePublication({ repository: repositoryFor(env), date, random: Math.random }).pipe(
+        Effect.tap((publication) =>
+          Effect.logInfo('Publication ensured').pipe(
+            Effect.annotateLogs({ quoteId: publication.quote.id }),
+          ),
+        ),
+        Effect.tapCause((cause) => Effect.logError('Scheduled publication failed', cause)),
+        Effect.annotateLogs({ cron: controller.cron, date }),
+        Effect.asVoid,
+      ),
     );
   },
 } satisfies ExportedHandler<Env>;

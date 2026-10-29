@@ -52,8 +52,8 @@ interface Rule {
 const RULES: Record<string, Rule> = {
   http_ratelimit: {
     ref: 'somequote_api_burst',
-    description: 'Block API bursts before they invoke the Worker',
-    expression: 'starts_with(http.request.uri.path, "/api/")',
+    description: 'Block API and 404 page bursts before they invoke the Worker',
+    expression: 'starts_with(http.request.uri.path, "/api/") or http.request.uri.path eq "/404"',
     action: 'block',
     enabled: true,
     ratelimit: {
