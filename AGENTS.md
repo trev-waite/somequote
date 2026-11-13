@@ -13,6 +13,8 @@ Start with the [README](README.md) for setup, commands, and workflows. Read the 
 
 Consult deeper documentation only when the task warrants it, rather than loading everything for every change.
 
+For UI defaults, use the `ui-golden-rules` skill when available.
+
 ## Boundaries
 
 - Never expose secrets, credentials, or sensitive data.
