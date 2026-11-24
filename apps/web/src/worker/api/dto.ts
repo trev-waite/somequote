@@ -1,4 +1,4 @@
-import type { HistoryPage, Publication } from '@somequote/domain/publication';
+import type { HistoryPage, Publication } from '@somequote/core/publication';
 import type { HistoryDto, PublicationDto } from '../../shared/api-contract';
 
 export function toPublicationDto({ date, quote }: Publication): PublicationDto {

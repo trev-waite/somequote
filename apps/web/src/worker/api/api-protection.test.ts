@@ -1,7 +1,7 @@
 import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
-import { publicationDateAt } from '@somequote/domain';
-import { seededRandom } from '@somequote/domain/testing';
+import { publicationDateAt } from '@somequote/core';
+import { seededRandom } from '@somequote/core/testing';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ErrorDto, HistoryDto, PublicationDto } from '../../shared/api-contract';
 import { D1QuoteRepository } from '../db/d1-quote-repository';

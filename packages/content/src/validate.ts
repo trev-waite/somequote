@@ -1,4 +1,4 @@
-import { isAttributionText, isQuoteId, QUOTE_TEXT_MAX_LENGTH } from '@somequote/domain';
+import { isAttributionText, isQuoteId, QUOTE_TEXT_MAX_LENGTH } from '@somequote/core';
 import { attributionUrl } from './attributions';
 import type { BibleEntry } from './quotes/bible';
 import type { GeneralEntry } from './quotes/general';

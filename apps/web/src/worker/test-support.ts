@@ -1,6 +1,6 @@
 import { applyD1Migrations } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
-import { type BibleVerse, type GeneralQuote, parseQuoteId, type Quote } from '@somequote/domain';
+import { type BibleVerse, type GeneralQuote, parseQuoteId, type Quote } from '@somequote/core';
 
 /** Storage is shared by every test in a file, so each test starts from freshly migrated tables. */
 export async function resetDatabase(): Promise<void> {

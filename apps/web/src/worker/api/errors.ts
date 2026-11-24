@@ -1,4 +1,4 @@
-import type { PublicationError } from '@somequote/domain/publication';
+import type { PublicationError } from '@somequote/core/publication';
 import { Cause, Effect, Result } from 'effect';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';

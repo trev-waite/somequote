@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
-import { type QuoteRepository, QuoteStoreError } from '@somequote/domain/publication';
-import { seededRandom } from '@somequote/domain/testing';
+import { type QuoteRepository, QuoteStoreError } from '@somequote/core/publication';
+import { seededRandom } from '@somequote/core/testing';
 import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorDto, HistoryDto, PublicationDto } from '../../shared/api-contract';

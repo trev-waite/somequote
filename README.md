@@ -49,7 +49,7 @@ PRs with non-Markdown changes must increase the root app version; see [release v
 ## Layout
 
 ```
-packages/domain         quote model · publication clock · selection; /publication: ensurePublication · history · QuoteRepository contract · typed errors (Effect)
+packages/core           quote model · publication clock · selection; /publication: ensurePublication · history · QuoteRepository contract · typed errors (Effect)
 packages/content        curated quotes and provenance · editorial rules · source verification
 apps/web                the deployable Worker
   src/worker            entry: wires D1 into the API (fetch) and the cron (scheduled) · structured logging

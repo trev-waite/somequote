@@ -1,6 +1,6 @@
 # AGENTS.md
 
-SomeQuote publishes one quote a day, the same for everyone, revealed word by word above a writer's desk that counts down to the next one. It is a single Cloudflare Worker serving a React app, a JSON API, and a daily cron, backed by D1, with the domain and curated content as separate packages.
+SomeQuote publishes one quote a day, the same for everyone, revealed word by word above a writer's desk that counts down to the next one. It is a single Cloudflare Worker serving a React app, a JSON API, and a daily cron, backed by D1, with the core logic and curated content as separate packages.
 
 Favor sound engineering judgment over rigid rules, and see below for the software engineering principles.
 

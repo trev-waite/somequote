@@ -1,4 +1,4 @@
-import { nextPublicationAt, publicationDateAt } from '@somequote/domain';
+import { nextPublicationAt, publicationDateAt } from '@somequote/core';
 import { Effect } from 'effect';
 import type { HistoryDto, PublicationDto } from '../../shared/api-contract';
 
