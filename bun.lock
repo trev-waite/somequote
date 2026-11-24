@@ -13,7 +13,7 @@
       "name": "@somequote/web",
       "dependencies": {
         "@somequote/content": "workspace:*",
-        "@somequote/domain": "workspace:*",
+        "@somequote/core": "workspace:*",
         "effect": "4.1.5",
         "hono": "4.13.21",
         "react": "19.3.1",
@@ -38,7 +38,7 @@
     "packages/content": {
       "name": "@somequote/content",
       "dependencies": {
-        "@somequote/domain": "workspace:*",
+        "@somequote/core": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "26.6.6",
@@ -46,8 +46,8 @@
         "vitest": "5.1.1",
       },
     },
-    "packages/domain": {
-      "name": "@somequote/domain",
+    "packages/core": {
+      "name": "@somequote/core",
       "dependencies": {
         "effect": "4.1.5",
       },
@@ -56,24 +56,8 @@
         "vitest": "5.1.1",
       },
     },
-    "tools/dependency-audit": {
-      "name": "@somequote/dependency-audit",
-      "devDependencies": {
-        "@types/node": "26.6.6",
-        "typescript": "7.0.2",
-        "vitest": "5.1.1",
-      },
-    },
-    "tools/release": {
-      "name": "@somequote/release",
-      "devDependencies": {
-        "@types/node": "26.6.6",
-        "typescript": "7.0.2",
-        "vitest": "5.1.1",
-      },
-    },
-    "tools/secret-scan": {
-      "name": "@somequote/secret-scan",
+    "tools": {
+      "name": "@somequote/tools",
       "devDependencies": {
         "@types/node": "26.6.6",
         "typescript": "7.0.2",
@@ -294,13 +278,9 @@
 
     "@somequote/content": ["@somequote/content@workspace:packages/content"],
 
-    "@somequote/dependency-audit": ["@somequote/dependency-audit@workspace:tools/dependency-audit"],
+    "@somequote/core": ["@somequote/core@workspace:packages/core"],
 
-    "@somequote/domain": ["@somequote/domain@workspace:packages/domain"],
-
-    "@somequote/release": ["@somequote/release@workspace:tools/release"],
-
-    "@somequote/secret-scan": ["@somequote/secret-scan@workspace:tools/secret-scan"],
+    "@somequote/tools": ["@somequote/tools@workspace:tools"],
 
     "@somequote/web": ["@somequote/web@workspace:apps/web"],
 

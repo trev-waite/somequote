@@ -1,6 +1,6 @@
 import { createScheduledController } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
-import { addDays, parsePublicationDate, publicationStartsAt } from '@somequote/domain';
+import { addDays, parsePublicationDate, publicationStartsAt } from '@somequote/core';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import wranglerConfig from '../../wrangler.jsonc?raw';
 import worker from './index';

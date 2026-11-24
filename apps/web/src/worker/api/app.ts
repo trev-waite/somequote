@@ -1,10 +1,10 @@
-import { publicationDateAt, type Random } from '@somequote/domain';
+import { publicationDateAt, type Random } from '@somequote/core';
 import {
   ensurePublication,
   historyCursor,
   listHistory,
   type QuoteRepository,
-} from '@somequote/domain/publication';
+} from '@somequote/core/publication';
 import { Effect } from 'effect';
 import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';

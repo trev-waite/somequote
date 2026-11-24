@@ -49,7 +49,7 @@ PRs with non-Markdown changes must increase the root app version; see [release v
 ## Layout
 
 ```
-packages/domain         quote model · publication clock · selection; /publication: ensurePublication · history · QuoteRepository contract · typed errors (Effect)
+packages/core           quote model · publication clock · selection; /publication: ensurePublication · history · QuoteRepository contract · typed errors (Effect)
 packages/content        curated quotes and provenance · editorial rules · source verification
 apps/web                the deployable Worker
   src/worker            entry: wires D1 into the API (fetch) and the cron (scheduled) · structured logging
@@ -61,9 +61,11 @@ apps/web                the deployable Worker
     publication         the quote view · reveal timing · sharing · countdown
     desk                the interactive desk; one folder per object (book, bottle, drawer, envelope, magnifier)
   migrations            D1 schema; constraints and triggers enforce the invariants
-tools/secret-scan       dependency-free credential scanner for CI and the pre-push hook
-tools/dependency-audit  CI check for fixable or critical dependency vulnerabilities
-tools/release           reviewed app version and release-tag checks
+tools                   repository checks for CI and git hooks, one workspace
+  secret-scan           dependency-free credential scanner for CI and the pre-push hook
+  dependency-audit      CI check for fixable or critical dependency vulnerabilities
+  release               reviewed app version and release-tag checks
+  ci                    browser package cache verification for the CI runner (Python)
 ```
 
 ## Content

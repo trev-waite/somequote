@@ -4,13 +4,13 @@ import {
   isQuoteId,
   type QuoteUsage,
   type SelectionSnapshot,
-} from '@somequote/domain';
+} from '@somequote/core';
 import {
   type Publication,
   type PublishOutcome,
   type QuoteRepository,
   QuoteStoreError,
-} from '@somequote/domain/publication';
+} from '@somequote/core/publication';
 import { Effect } from 'effect';
 import { z } from 'zod/mini';
 import { branded } from '../../shared/branded';

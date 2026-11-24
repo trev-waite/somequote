@@ -1,5 +1,5 @@
 {
-  "name": "@somequote/secret-scan",
+  "name": "@somequote/tools",
   "private": true,
   "type": "module",
   "scripts": {

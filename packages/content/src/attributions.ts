@@ -1,4 +1,4 @@
-import type { BibleVerse, GeneralQuote } from '@somequote/domain';
+import type { BibleVerse, GeneralQuote } from '@somequote/core';
 
 const AUTHOR_PAGES: Readonly<Record<string, string>> = {
   'Al Michaels': 'https://grokipedia.com/page/Al_Michaels',

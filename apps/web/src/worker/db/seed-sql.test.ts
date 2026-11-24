@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { COLLECTION, type CollectionEntry } from '@somequote/content';
-import { parsePublicationDate } from '@somequote/domain';
-import { ensurePublication } from '@somequote/domain/publication';
+import { parsePublicationDate } from '@somequote/core';
+import { ensurePublication } from '@somequote/core/publication';
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetDatabase } from '../test-support';

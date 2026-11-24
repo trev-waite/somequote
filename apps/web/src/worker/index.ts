@@ -1,5 +1,5 @@
-import { publicationDateAt } from '@somequote/domain';
-import { ensurePublication } from '@somequote/domain/publication';
+import { publicationDateAt } from '@somequote/core';
+import { ensurePublication } from '@somequote/core/publication';
 import { Effect } from 'effect';
 import { createApp } from './api/app';
 import { D1QuoteRepository } from './db/d1-quote-repository';

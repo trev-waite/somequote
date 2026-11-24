@@ -5,14 +5,14 @@ import {
   parsePublicationDate,
   parseQuoteId,
   ROTATION_LENGTH,
-} from '@somequote/domain';
+} from '@somequote/core';
 import {
   ensurePublication,
   NoEligibleQuoteError,
   type QuoteRepository,
   QuoteStoreError,
-} from '@somequote/domain/publication';
-import { seededRandom } from '@somequote/domain/testing';
+} from '@somequote/core/publication';
+import { seededRandom } from '@somequote/core/testing';
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {

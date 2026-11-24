@@ -1,4 +1,4 @@
-import { isAttributionText, isPublicationDate, isQuoteText } from '@somequote/domain';
+import { isAttributionText, isPublicationDate, isQuoteText } from '@somequote/core';
 import { z } from 'zod/mini';
 import { branded } from './branded';
 

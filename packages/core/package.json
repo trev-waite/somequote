@@ -1,5 +1,5 @@
 {
-  "name": "@somequote/domain",
+  "name": "@somequote/core",
   "private": true,
   "type": "module",
   "exports": {
