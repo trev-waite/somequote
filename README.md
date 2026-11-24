@@ -61,9 +61,11 @@ apps/web                the deployable Worker
     publication         the quote view · reveal timing · sharing · countdown
     desk                the interactive desk; one folder per object (book, bottle, drawer, envelope, magnifier)
   migrations            D1 schema; constraints and triggers enforce the invariants
-tools/secret-scan       dependency-free credential scanner for CI and the pre-push hook
-tools/dependency-audit  CI check for fixable or critical dependency vulnerabilities
-tools/release           reviewed app version and release-tag checks
+tools                   repository checks for CI and git hooks, one workspace
+  secret-scan           dependency-free credential scanner for CI and the pre-push hook
+  dependency-audit      CI check for fixable or critical dependency vulnerabilities
+  release               reviewed app version and release-tag checks
+  ci                    browser package cache verification for the CI runner (Python)
 ```
 
 ## Content
