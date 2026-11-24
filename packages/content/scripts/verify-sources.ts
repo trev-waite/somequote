@@ -27,10 +27,14 @@ async function download(id: SourceId): Promise<string | undefined> {
     const response = await fetch(source.url, {
       headers: { 'User-Agent': 'SomeQuote content verification (one-off, cached)' },
     });
-    if (response.status === 503) return undefined;
-    if (!response.ok) throw new Error(`${id}: ${response.status} fetching ${source.url}`);
-    await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(cached, Buffer.from(await response.arrayBuffer()));
+    if (response.status === 503) {
+      if (!existsSync(cached)) return undefined;
+    } else if (!response.ok) {
+      throw new Error(`${id}: ${response.status} fetching ${source.url}`);
+    } else {
+      await mkdir(CACHE_DIR, { recursive: true });
+      await writeFile(cached, Buffer.from(await response.arrayBuffer()));
+    }
   }
   if (source.format === 'ebible-vpl-zip') {
     return execFileSync('unzip', ['-p', cached.pathname, 'eng-web_vpl.txt'], {
@@ -131,15 +135,15 @@ else {
   }
 }
 
+for (const id of unavailable) {
+  const message = `${id} is down for maintenance (503) at ${SOURCES[id].url}; its quotes were not verified.`;
+  console.warn(process.env.GITHUB_ACTIONS ? `::warning::${message}` : message);
+}
 const checked = GENERAL_QUOTES.length + BIBLE_VERSES.length;
 if (failures.length > 0) {
   console.error(
     `${failures.length} of ${checked} quotes failed verification:\n${failures.join('\n')}`,
   );
   process.exit(1);
-}
-for (const id of unavailable) {
-  const message = `${id} is down for maintenance (503) at ${SOURCES[id].url}; its quotes were not verified.`;
-  console.warn(process.env.GITHUB_ACTIONS ? `::warning::${message}` : message);
 }
 console.log(`Verified ${verified} of ${checked} quotes against their source texts.`);
