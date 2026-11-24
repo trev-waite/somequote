@@ -6,6 +6,9 @@
  * final punctuation mark of an excerpt. Bible verses must be exact excerpts of the cited passage,
  * because the World English Bible may only be called by that name when its text is unchanged.
  *
+ * A source site that answers 503 is down for maintenance, not evidence against a quote, so the
+ * quotes citing it are reported as unverified instead of failing the run.
+ *
  * Usage: bun run content:verify-sources [--refresh]
  */
 import { execFileSync } from 'node:child_process';
@@ -16,7 +19,7 @@ import { BIBLE_VERSES, GENERAL_QUOTES, SOURCES, type SourceId } from '../src';
 const CACHE_DIR = new URL('../.cache/sources/', import.meta.url);
 const REFRESH = process.argv.includes('--refresh');
 
-async function download(id: SourceId): Promise<string> {
+async function download(id: SourceId): Promise<string | undefined> {
   const source = SOURCES[id];
   const extension = source.format === 'ebible-vpl-zip' ? 'zip' : 'txt';
   const cached = new URL(`${id}.${extension}`, CACHE_DIR);
@@ -24,9 +27,14 @@ async function download(id: SourceId): Promise<string> {
     const response = await fetch(source.url, {
       headers: { 'User-Agent': 'SomeQuote content verification (one-off, cached)' },
     });
-    if (!response.ok) throw new Error(`${id}: ${response.status} fetching ${source.url}`);
-    await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(cached, Buffer.from(await response.arrayBuffer()));
+    if (response.status === 503) {
+      if (!existsSync(cached)) return undefined;
+    } else if (!response.ok) {
+      throw new Error(`${id}: ${response.status} fetching ${source.url}`);
+    } else {
+      await mkdir(CACHE_DIR, { recursive: true });
+      await writeFile(cached, Buffer.from(await response.arrayBuffer()));
+    }
   }
   if (source.format === 'ebible-vpl-zip') {
     return execFileSync('unzip', ['-p', cached.pathname, 'eng-web_vpl.txt'], {
@@ -96,29 +104,41 @@ function passageText(verses: Map<string, string>, passage: string): string | und
 
 const failures: string[] = [];
 const sourceText = new Map<SourceId, string>();
-const cited = new Set<SourceId>([
-  ...GENERAL_QUOTES.map((entry) => entry.provenance.sourceId),
-  'world-english-bible',
-]);
+const unavailable = new Set<SourceId>();
+const cited = new Set<SourceId>(GENERAL_QUOTES.map((entry) => entry.provenance.sourceId));
 for (const id of cited) {
-  sourceText.set(id, typographic(await download(id)));
+  const text = await download(id);
+  if (text === undefined) unavailable.add(id);
+  else sourceText.set(id, typographic(text));
 }
 
+let verified = 0;
 for (const entry of GENERAL_QUOTES) {
-  const source = sourceText.get(entry.provenance.sourceId) ?? '';
+  const source = sourceText.get(entry.provenance.sourceId);
+  if (source === undefined) continue;
+  verified++;
   if (!appearsIn(source, entry.text))
     failures.push(`${entry.id}: not found in ${entry.provenance.sourceId}`);
 }
 
-const verses = versesOf(await download('world-english-bible'));
-for (const entry of BIBLE_VERSES) {
-  const passage = passageText(verses, entry.passage);
-  if (passage === undefined) failures.push(`${entry.id}: passage ${entry.passage} not found`);
-  else if (!passage.replace(/\s+/g, ' ').includes(entry.text)) {
-    failures.push(`${entry.id}: not an exact excerpt of ${entry.passage}`);
+const bible = await download('world-english-bible');
+if (bible === undefined) unavailable.add('world-english-bible');
+else {
+  const verses = versesOf(bible);
+  for (const entry of BIBLE_VERSES) {
+    verified++;
+    const passage = passageText(verses, entry.passage);
+    if (passage === undefined) failures.push(`${entry.id}: passage ${entry.passage} not found`);
+    else if (!passage.replace(/\s+/g, ' ').includes(entry.text)) {
+      failures.push(`${entry.id}: not an exact excerpt of ${entry.passage}`);
+    }
   }
 }
 
+for (const id of unavailable) {
+  const message = `${id} is down for maintenance (503) at ${SOURCES[id].url}; its quotes were not verified.`;
+  console.warn(process.env.GITHUB_ACTIONS ? `::warning::${message}` : message);
+}
 const checked = GENERAL_QUOTES.length + BIBLE_VERSES.length;
 if (failures.length > 0) {
   console.error(
@@ -126,4 +146,4 @@ if (failures.length > 0) {
   );
   process.exit(1);
 }
-console.log(`Verified ${checked} quotes against ${cited.size} source texts.`);
+console.log(`Verified ${verified} of ${checked} quotes against their source texts.`);
