@@ -4,6 +4,7 @@ One quote a day, the same for everyone. A quote reveals itself word by word, and
 
 - About 80% enduring quotes from writers, philosophers, scientists, leaders, and athletes; about 20% verses from the World English Bible.
 - A new quote at midnight in New York, published once and kept in a permanent history.
+- A heart under the quote keeps it as a favorite on this device, with no account; favorites are filed in a card box on the desk.
 - One Cloudflare Worker serving the React app as static assets, a JSON API, and a daily cron, backed by D1.
 
 ## Quick start
@@ -59,7 +60,8 @@ apps/web                the deployable Worker
   src/client            React app shell · styles
     data                API client · loading and caching today's publication
     publication         the quote view · reveal timing · sharing · countdown
-    desk                the interactive desk; one folder per object (book, bottle, drawer, envelope, magnifier)
+    favorites           favorites kept in local storage · the heart that toggles today’s quote
+    desk                the interactive desk; one folder per object (book, bottle, card-box, drawer, envelope, magnifier)
   migrations            D1 schema; constraints and triggers enforce the invariants
 tools                   repository checks for CI and git hooks, one workspace
   secret-scan           dependency-free credential scanner for CI and the pre-push hook

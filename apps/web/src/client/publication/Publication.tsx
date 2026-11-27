@@ -1,6 +1,7 @@
 import { attributionUrl } from '@somequote/content/attributions';
 import { type CSSProperties, useMemo } from 'react';
 import type { PublicationDto, QuoteDto } from '../../shared/api-contract';
+import { FavoriteToggle } from '../favorites/FavoriteToggle';
 import { type Motion, planReveal, type Timing, tokenize } from './reveal';
 
 export function attributionOf(quote: QuoteDto): { primary: string; secondary: string } {
@@ -19,7 +20,7 @@ function lengthClass(text: string): 'short' | 'medium' | 'long' {
 }
 
 function animation(
-  name: 'word-rise' | 'blur-in' | 'fade-in',
+  name: 'word-rise' | 'blur-in' | 'fade-in' | 'favorite-in',
   { delayMs, durationMs }: Timing,
 ): CSSProperties {
   return {
@@ -45,6 +46,10 @@ export function PublicationView({ publication, motion }: PublicationViewProps) {
 
   const fade = plan.kind === 'fade' ? animation('fade-in', plan.fade) : undefined;
   const attributionStyle = plan.kind === 'cascade' ? animation('blur-in', plan.attribution) : fade;
+  const favoriteStyle = animation(
+    'favorite-in',
+    plan.kind === 'cascade' ? plan.attribution : plan.fade,
+  );
 
   return (
     <article className="publication" data-motion={plan.kind}>
@@ -87,6 +92,7 @@ export function PublicationView({ publication, motion }: PublicationViewProps) {
           <span className="attribution-secondary">{secondary}</span>
         </figcaption>
       </figure>
+      <FavoriteToggle publication={publication} style={favoriteStyle} />
     </article>
   );
 }

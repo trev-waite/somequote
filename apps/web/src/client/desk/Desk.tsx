@@ -3,6 +3,7 @@ import type { QuoteDto } from '../../shared/api-contract';
 import type { Motion } from '../publication/reveal';
 import { Book } from './book/Book';
 import { ShipInBottle } from './bottle/ShipInBottle';
+import { CardBox } from './card-box/CardBox';
 import { currentColorScheme, switchColorScheme, useColorScheme } from './color-scheme';
 import { CORD, Cord } from './cord';
 import { DeskPart } from './DeskPart';
@@ -250,6 +251,9 @@ export function Desk({ remainingMs, motion, quote }: DeskProps) {
             }
             if (part.kind === 'drawer') {
               return <Drawer key="drawer" motion={motion} controls={sceneRef} />;
+            }
+            if (part.kind === 'card-box') {
+              return <CardBox key="card-box" controls={sceneRef} />;
             }
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: the parts are a fixed painter's order

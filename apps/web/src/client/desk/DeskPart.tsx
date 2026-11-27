@@ -33,7 +33,7 @@ function Solid({
 export const DeskPart = memo(function DeskPart({
   part,
 }: {
-  part: Exclude<Part, { kind: 'book' | 'drawer' }>;
+  part: Exclude<Part, { kind: 'book' | 'drawer' | 'card-box' }>;
 }) {
   switch (part.kind) {
     case 'halo':

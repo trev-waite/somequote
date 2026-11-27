@@ -1,8 +1,9 @@
-import { isAttributionText, isPublicationDate, isQuoteText } from '@somequote/core';
+import { isAttributionText, isPublicationDate, isQuoteId, isQuoteText } from '@somequote/core';
 import { z } from 'zod/mini';
 import { branded } from './branded';
 
 const CalendarDate = branded(isPublicationDate, 'calendar date (expected YYYY-MM-DD)');
+const QuoteId = branded(isQuoteId, 'quote id');
 const QuoteText = z
   .string()
   .check(z.refine(isQuoteText, 'Quote text is too long or has hidden characters'));
@@ -13,14 +14,14 @@ const Attribution = z
 export const QuoteDto = z.discriminatedUnion('category', [
   z.object({
     category: z.literal('general'),
-    id: z.string(),
+    id: QuoteId,
     text: QuoteText,
     author: Attribution,
     source: Attribution,
   }),
   z.object({
     category: z.literal('bible'),
-    id: z.string(),
+    id: QuoteId,
     text: QuoteText,
     reference: Attribution,
     translation: Attribution,

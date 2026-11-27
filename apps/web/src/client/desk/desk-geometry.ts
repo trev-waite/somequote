@@ -29,6 +29,7 @@ export type Tone = 'hi' | 'mid' | 'lo' | 'faint';
 export type Part =
   | { readonly kind: 'book' }
   | { readonly kind: 'drawer' }
+  | { readonly kind: 'card-box' }
   | { readonly kind: 'halo'; readonly d: string }
   | {
       readonly kind: 'solid';
@@ -262,6 +263,7 @@ export const DESK_PARTS: readonly Part[] = [
   ...grain(),
   ...note(),
   { kind: 'light', layer: 'pool' },
+  { kind: 'card-box' },
   { kind: 'book' },
   ...lamp(),
   ...clock(),
