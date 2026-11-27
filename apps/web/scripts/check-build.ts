@@ -16,7 +16,7 @@ const PUBLIC_FILES = [
 ];
 
 /** Raise a budget deliberately, in the same change that needs it. */
-const GZIP_BUDGETS = { js: 115_000, css: 6_000 };
+const GZIP_BUDGETS = { js: 120_100, css: 6_750 };
 const INITIAL_JS_BUDGET = 86_000;
 
 /** `.assetsignore` keeps the generated Worker config and local secrets out of public assets. */

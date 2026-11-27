@@ -1,5 +1,5 @@
 /**
- * Convex isometric solids with z up and the viewer looking down from +x, +y.
+ * Isometric solids with z up and the viewer looking down from +x, +y.
  * Visual style inspired by github.com/wheresryan22/anatomy (MIT).
  */
 export type Vec3 = readonly [x: number, y: number, z: number];
@@ -135,21 +135,84 @@ function runsOf(flags: readonly boolean[], want: boolean): number[][] {
   return runs;
 }
 
+function crossing(a: Point, b: Point, c: Point, d: Point): Point | undefined {
+  const r = { x: b.x - a.x, y: b.y - a.y };
+  const s = { x: d.x - c.x, y: d.y - c.y };
+  const denominator = r.x * s.y - r.y * s.x;
+  if (Math.abs(denominator) < 1e-12) return undefined;
+  const t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / denominator;
+  const u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / denominator;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? { x: a.x + t * r.x, y: a.y + t * r.y } : undefined;
+}
+
+/**
+ * The outline of a concave ring swept back from its near cap: the far edges of the sides that face
+ * the viewer and the near edges of those that do not. Where that switch happens in a hollow, the far
+ * edge passes behind the near cap, so the outline cuts across to where it disappears.
+ */
+function sweptOutline(
+  near: readonly Point[],
+  far: readonly Point[],
+  facing: readonly boolean[],
+  hollow: readonly boolean[],
+): Point[] {
+  const count = facing.length;
+  const points: Point[] = [];
+  const switches: number[] = [];
+  facing.forEach((after, index) => {
+    const before = facing[(index + count - 1) % count];
+    const front = near[index] ?? { x: 0, y: 0 };
+    const back = far[index] ?? { x: 0, y: 0 };
+    if (before === after) {
+      points.push(after ? back : front);
+      return;
+    }
+    if (hollow[index]) switches.push(points.length);
+    points.push(...(before ? [back, front] : [front, back]));
+  });
+  const size = points.length;
+  const point = (index: number) => points[(index + size) % size] ?? { x: 0, y: 0 };
+  const dropped = new Set<number>();
+  for (const at of switches) {
+    search: for (let behind = 0; behind < 12; behind++) {
+      for (let ahead = 0; ahead < 12; ahead++) {
+        const meet = crossing(
+          point(at - behind - 1),
+          point(at - behind),
+          point(at + 1 + ahead),
+          point(at + 2 + ahead),
+        );
+        if (!meet) continue;
+        points[(at - behind + size) % size] = meet;
+        for (let index = at - behind + 1; index <= at + 1 + ahead; index++) {
+          dropped.add((index + size) % size);
+        }
+        break search;
+      }
+    }
+  }
+  return points.filter((_, index) => !dropped.has(index));
+}
+
+/** Extrudes a flat ring, which may be concave, such as a card with a tab rising from its edge. */
 export function prism(ring: readonly Vec3[], along: Vec3, bevel = 0): SolidPaths {
   const count = ring.length;
-  const center = scale(
-    ring.reduce<Vec3>((sum, point) => add(sum, point), [0, 0, 0]),
-    1 / count,
+  const next = (index: number) => ring[(index + 1) % count] ?? [0, 0, 0];
+  const turn = ring.reduce<Vec3>(
+    (sum, point, index) => add(sum, cross(point, next(index))),
+    [0, 0, 0],
   );
   const far = ring.map((point) => add(point, along));
   const axis = normalize(along);
   const capNear = dot(axis, TOWARD_VIEWER) >= 0;
   const cap = capNear ? far : ring;
-  const normals = ring.map((point, index) => {
-    const next = ring[(index + 1) % count] ?? point;
-    const normal = normalize(cross(sub(next, point), axis));
-    const outward = dot(normal, sub(point, center)) >= 0;
-    return outward ? normal : scale(normal, -1);
+  const winding = dot(turn, axis) < 0 ? -1 : 1;
+  const normals = ring.map((point, index) =>
+    scale(normalize(cross(sub(next(index), point), axis)), winding),
+  );
+  const hollow = ring.map((point, index) => {
+    const before = ring[(index + count - 1) % count] ?? point;
+    return dot(cross(sub(point, before), sub(next(index), point)), turn) < -1e-9;
   });
   const facing = normals.map((normal) => dot(normal, TOWARD_VIEWER) > 1e-9);
   const capFlat = cap.map(project);
@@ -195,7 +258,9 @@ export function prism(ring: readonly Vec3[], along: Vec3, bevel = 0): SolidPaths
       .join('');
   }
 
-  const silhouette = hull([...capFlat, ...baseFlat]);
+  const silhouette = hollow.includes(true)
+    ? sweptOutline(capFlat, baseFlat, facing, hollow)
+    : hull([...capFlat, ...baseFlat]);
   return {
     fill: pathOf(silhouette, true),
     outline: pathOf(silhouette, true),

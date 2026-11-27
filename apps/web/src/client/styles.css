@@ -28,6 +28,9 @@
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 
   --ease-reveal: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-lift: cubic-bezier(0.33, 0, 0.2, 1);
+  --ease-rise: cubic-bezier(0.5, 0, 0.5, 1);
   --word-rise: 8px;
   --reveal-blur: 6px;
 
@@ -50,6 +53,7 @@
   --iso-halo-opacity: 0.2;
   --iso-weight: 0.6px;
   --lamp-light: #ffb84a;
+  --heart: #e5484d;
   --clock-window: #0e0e0f;
   --clock-card: #1c1c1e;
   --clock-digit: #f5f3ee;
@@ -347,6 +351,77 @@ body {
   color: var(--ink-muted);
 }
 
+/* One heart for the quote's toggle and the box's label: red rises from its point, and drains. */
+.heart-fill {
+  fill: var(--heart);
+  transform: scaleY(0);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transition: transform 240ms var(--ease-reveal);
+}
+
+.heart-outline {
+  fill: none;
+  stroke-linejoin: round;
+  transition: stroke 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart-fill {
+    opacity: 0;
+    transform: none;
+    transition: opacity 160ms ease;
+  }
+}
+
+/* Revealed with the attribution, and reserving its place from the first frame. */
+.favorite-toggle {
+  display: grid;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  margin-top: var(--space-2);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    transform 140ms var(--ease-out);
+}
+
+.favorite-toggle-icon {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.favorite-toggle .heart-outline {
+  stroke: currentColor;
+  stroke-width: 1.5px;
+}
+
+.favorite-toggle[aria-pressed="true"] {
+  color: var(--heart);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .favorite-toggle:hover {
+    color: var(--ink);
+  }
+
+  .favorite-toggle[aria-pressed="true"]:hover {
+    color: var(--heart);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .favorite-toggle:active {
+    transform: scale(0.9);
+  }
+}
+
 .status {
   display: flex;
   flex-direction: column;
@@ -401,7 +476,8 @@ body {
 
 .word,
 .quote,
-.attribution {
+.attribution,
+.favorite-toggle {
   animation-timing-function: var(--ease-reveal);
   animation-fill-mode: backwards;
 }
@@ -427,6 +503,18 @@ body {
   to {
     opacity: 1;
     filter: none;
+  }
+}
+
+/* Hidden until its reveal starts, so the heart can't be focused or pressed before it shows. */
+@keyframes favorite-in {
+  from {
+    visibility: hidden;
+    opacity: 0;
+  }
+  to {
+    visibility: visible;
+    opacity: 1;
   }
 }
 
@@ -697,6 +785,75 @@ body {
 
 .drawer-floor {
   fill: var(--iso-shade-1);
+}
+
+/* While the sheet is open the box's cards are out of it, carried by the sheet's flight cards. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.favorites[open]) .card-box-card {
+    visibility: hidden;
+  }
+}
+
+.card-box-hollow {
+  fill: var(--iso-shade-0);
+  stroke: var(--iso-mid);
+  stroke-width: var(--iso-weight);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.favorite-toggle[aria-pressed="true"] .heart-fill,
+.desk:has(.card-box-trigger:active, .card-box-trigger:focus-visible) .heart-fill {
+  transform: none;
+  transition-duration: 420ms;
+}
+
+.card-box-mark .heart-outline {
+  stroke: var(--iso-mid);
+  stroke-width: var(--iso-weight);
+  vector-effect: non-scaling-stroke;
+}
+
+.desk:has(.card-box-trigger:active, .card-box-trigger:focus-visible) .heart-outline {
+  stroke: var(--heart);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .desk:has(.card-box-trigger:hover) .heart-fill {
+    transform: none;
+    transition-duration: 420ms;
+  }
+
+  .desk:has(.card-box-trigger:hover) .heart-outline {
+    stroke: var(--heart);
+  }
+}
+
+/* Without hover to show it, the box's heart stays red while it holds a favorite. */
+@media (hover: none), (pointer: coarse) {
+  .card-box:not([data-count="0"]) .heart-fill {
+    opacity: 1;
+    transform: none;
+    transition-duration: 420ms;
+  }
+
+  .card-box:not([data-count="0"]) .heart-outline {
+    stroke: var(--heart);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorite-toggle[aria-pressed="true"] .heart-fill,
+  .desk:has(.card-box-trigger:active, .card-box-trigger:focus-visible) .heart-fill {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+  .desk:has(.card-box-trigger:hover) .heart-fill {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .bottle-glass,
@@ -1024,6 +1181,501 @@ body {
 
 .envelope-option:active {
   background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.card-box-trigger {
+  position: absolute;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.card-box-trigger::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--card-box-outline);
+}
+
+.card-box-trigger:focus-visible {
+  outline: none;
+}
+
+.card-box-trigger:focus-visible::before {
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+html:has(.favorites[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+/*
+ * The dialog is the scrim. Cards lift out of the card box toward the reader, turning from the box's
+ * angle to face them as the envelope does, and drop back in when it closes.
+ */
+.favorites {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: max(var(--space-5), env(safe-area-inset-top))
+    max(var(--space-3), env(safe-area-inset-right)) max(var(--space-6), env(safe-area-inset-bottom))
+    max(var(--space-3), env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border: 0;
+  background: none;
+  color: var(--ink);
+}
+
+.favorites::backdrop {
+  background: none;
+}
+
+/* Its own layer, so fading it composites instead of repainting the whole screen. */
+.favorites-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+}
+
+.favorites-sheet {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.favorites-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.favorites-title {
+  margin: 0;
+  outline: none;
+  font: 400 32px / 40px var(--font-quote);
+}
+
+.favorites-count,
+.favorites-note,
+.favorites-empty,
+.favorite-date {
+  margin: 0;
+  color: var(--ink-muted);
+  font: 15px / 24px var(--font-ui);
+}
+
+.favorites-note {
+  flex-basis: 100%;
+}
+
+.favorites-close {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  margin: 0 calc(var(--space-1) * -1.5) 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.favorites-close-icon {
+  width: var(--space-3);
+  height: var(--space-3);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+}
+
+.favorites-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* An index card: a tab, a ruled heading with the date, then the quote as it was published. */
+.favorite-card {
+  position: relative;
+  min-width: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  border: 1px solid var(--iso-lo);
+  border-radius: 4px;
+  background: var(--paper);
+}
+
+.favorite-tab {
+  position: absolute;
+  bottom: 100%;
+  left: calc(var(--tab-stop) * (100% - var(--tab-width)));
+  width: var(--tab-width);
+  height: 12px;
+  border: 1px solid var(--iso-lo);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--paper);
+}
+
+/* The tab covers the card's edge beneath it, and curves into it on each side. */
+.favorite-tab::before,
+.favorite-tab::after {
+  position: absolute;
+  right: 100%;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(
+    circle at 0 0,
+    transparent 2.6px,
+    var(--iso-lo) 3.1px 3.9px,
+    var(--paper) 4.4px
+  );
+  content: "";
+}
+
+.favorite-tab::after {
+  right: auto;
+  left: 100%;
+  transform: scaleX(-1);
+}
+
+.favorite-card[data-removed] {
+  padding-bottom: 0;
+  border-style: dashed;
+}
+
+.favorite-removed {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--space-6);
+}
+
+.favorite-card:not([data-removed]) .favorite-header {
+  border-bottom: 1px solid var(--iso-faint);
+}
+
+/* A hidden bold copy of the label holds the button at its bold width. */
+.favorite-action {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-6);
+  margin-right: calc(var(--space-1) * -1);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--space-1);
+  background: none;
+  color: var(--ink-secondary);
+  font: 15px / 24px var(--font-ui);
+  cursor: pointer;
+}
+
+.favorite-action::after {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  content: attr(data-label) / "";
+  font-weight: 600;
+}
+
+.favorite-action:active {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.favorites-close:active .favorites-close-icon {
+  stroke-width: 2.25px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .favorite-action:hover {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .favorites-close:hover .favorites-close-icon {
+    stroke-width: 2.25px;
+  }
+}
+
+.favorite-figure {
+  margin: var(--space-2) 0 0;
+}
+
+.favorite-quote {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  font: 400 24px / 32px var(--font-quote);
+  font-kerning: normal;
+  font-synthesis: none;
+  text-wrap: pretty;
+  user-select: text;
+}
+
+.favorite-attribution {
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+  margin-top: var(--space-2);
+  font: 15px / 24px var(--font-ui);
+}
+
+/*
+ * The cards lift and fly in their own layer, drawn like the box's cards so their outlines stay
+ * crisp at any size, and under the sheet's cards, which show only once their flights land on them.
+ * Each card's rise and flight overlap into one sweep. While a card is in the box, the box's near
+ * walls hide its foot: one simple clip per wall, which browsers apply without masking.
+ */
+.favorites-flight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.flight-walls {
+  clip-path: var(--wall);
+}
+
+.flight-front {
+  --wall: url(#favorites-front-wall);
+}
+
+.flight-right {
+  --wall: url(#favorites-right-wall);
+}
+
+.flight-slot {
+  visibility: hidden;
+}
+
+.flight-slot[data-aimed] {
+  visibility: visible;
+}
+
+.flight-card {
+  transform: translateY(var(--card-in-box));
+}
+
+.flight-pose {
+  transform: var(--flight-from);
+}
+
+.flight-tab,
+.flight-face {
+  fill: var(--iso-face);
+  stroke: var(--iso-lo);
+  stroke-width: var(--iso-weight);
+  vector-effect: non-scaling-stroke;
+}
+
+.flight-tab,
+.flight-join {
+  transform: var(--tab-from);
+}
+
+.flight-join-fill {
+  fill: var(--iso-face);
+}
+
+.flight-join-line {
+  fill: none;
+  stroke: var(--iso-lo);
+  stroke-width: var(--flight-stroke);
+  vector-effect: non-scaling-stroke;
+}
+
+.favorites-scrim,
+.favorites-header,
+.favorites-empty {
+  transition: opacity 240ms var(--ease-out) var(--sheet-delay, 0ms);
+}
+
+.favorite-card {
+  transition: visibility 0s linear var(--card-land, 0ms);
+}
+
+.favorite-card > :not(.favorite-tab) {
+  transition: opacity 200ms ease var(--card-land, 0ms);
+}
+
+.favorites:not([data-arriving], [data-closing]) .flight-walls {
+  clip-path: none;
+  animation: walls-out var(--card-clear) linear var(--card-wait) backwards;
+}
+
+.favorites:not([data-arriving], [data-closing]) .flight-card {
+  opacity: 0;
+  transform: none;
+  transition:
+    transform var(--card-lift) var(--ease-rise) var(--card-wait),
+    opacity 0s linear calc(var(--card-delay) + var(--card-flight));
+}
+
+.favorites:not([data-arriving], [data-closing]) .flight-pose {
+  transform: var(--flight-to);
+  transition: transform var(--card-flight) var(--ease-lift) var(--card-delay);
+}
+
+.favorites:not([data-arriving], [data-closing]) :is(.flight-face, .flight-tab, .flight-join-fill) {
+  fill: var(--paper);
+  stroke-width: var(--flight-stroke);
+}
+
+.favorites:not([data-arriving], [data-closing])
+  :is(.flight-face, .flight-tab, .flight-join, .flight-join-fill) {
+  transition:
+    fill var(--card-flight) var(--ease-lift) var(--card-delay),
+    stroke-width var(--card-flight) var(--ease-lift) var(--card-delay),
+    transform var(--card-flight) var(--ease-lift) var(--card-delay);
+}
+
+.favorites:not([data-arriving], [data-closing]) :is(.flight-tab, .flight-join) {
+  transform: translate(0, 0) scale(1, 1);
+}
+
+@keyframes walls-out {
+  from,
+  to {
+    clip-path: var(--wall);
+  }
+}
+
+@keyframes walls-in {
+  from,
+  to {
+    clip-path: var(--wall);
+  }
+}
+
+.favorites[data-arriving] .favorite-card {
+  visibility: hidden;
+  transition: none;
+}
+
+.favorites[data-arriving] .favorite-card > * {
+  opacity: 0;
+  transition: none;
+}
+
+/*
+ * Closing stays modal until the cards are back, so focus and the page lock hold throughout, and
+ * the list holds still so the cards land in the box they were aimed at. Each card's writing fades,
+ * leaving its flight card to carry it home; it starts settling into the box before it has quite
+ * arrived above it.
+ */
+.favorites[data-closing] {
+  overflow-y: hidden;
+}
+
+.favorites[data-closing] .favorites-scrim {
+  opacity: 0;
+  transition: opacity var(--card-back) var(--ease-out) var(--card-fade);
+}
+
+.favorites[data-closing] .favorites-sheet {
+  pointer-events: none;
+}
+
+.favorites[data-closing] .favorites-header,
+.favorites[data-closing] .favorites-empty {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.favorites[data-closing] .favorite-card {
+  visibility: hidden;
+  transition: visibility 0s linear var(--card-fade);
+}
+
+.favorites[data-closing] .favorite-card > :not(.favorite-tab) {
+  opacity: 0;
+  transition: opacity var(--card-fade) ease;
+}
+
+.favorites[data-closing] .flight-walls {
+  clip-path: none;
+  animation: walls-in var(--card-drop) linear var(--card-walls) forwards;
+}
+
+.favorites[data-closing] .flight-card {
+  transition:
+    opacity 0s linear var(--card-fade),
+    transform var(--card-drop) var(--ease-rise) var(--card-return);
+}
+
+.favorites[data-closing]
+  :is(.flight-pose, .flight-face, .flight-tab, .flight-join, .flight-join-fill) {
+  transition:
+    transform var(--card-back) var(--ease-lift) var(--card-fade),
+    fill var(--card-back) var(--ease-lift) var(--card-fade),
+    stroke-width var(--card-back) var(--ease-lift) var(--card-fade);
+}
+
+@starting-style {
+  .favorites[open] .favorites-scrim {
+    opacity: 0;
+  }
+
+  .favorites[open] .favorites-header,
+  .favorites[open] .favorites-empty {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorites-flight {
+    display: none;
+  }
+
+  .favorites-scrim,
+  .favorites-header,
+  .favorites-empty,
+  .favorite-card,
+  .favorite-card > :not(.favorite-tab) {
+    transition-delay: 0ms;
+  }
+
+  .favorites[data-closing] .favorites-scrim,
+  .favorites[data-closing] .favorite-card > :not(.favorite-tab) {
+    transition: opacity 160ms ease;
+  }
+
+  .favorites[data-closing] .favorite-card {
+    transition: visibility 0s linear 160ms;
+  }
 }
 
 /*
