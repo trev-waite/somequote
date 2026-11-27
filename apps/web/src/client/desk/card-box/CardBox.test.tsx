@@ -416,6 +416,18 @@ describe('CardBox', () => {
     expect(name('a')).not.toBe(name('b'));
   });
 
+  it('gives every card its own element ids, whatever its quote id', () => {
+    const { trigger, dialog, press } = showDesk([
+      publication('toggle-heart', '2026-11-24'),
+      publication('a-date', '2026-11-22'),
+      publication('a', '2026-11-20'),
+    ]);
+    press(trigger);
+    const ids = [...document.querySelectorAll('[id]')].map((element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(dialog.querySelectorAll('[aria-labelledby], [aria-describedby]').length).toBe(3);
+  });
+
   it('clears removed rows as it closes, so a reopened sheet aims at the cards as shown', () => {
     const { trigger, dialog, action, press, fade } = showDesk([
       publication('a', '2026-11-24'),

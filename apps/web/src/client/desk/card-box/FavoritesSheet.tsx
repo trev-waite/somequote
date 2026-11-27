@@ -263,7 +263,7 @@ export function FavoritesSheet({ open, origin, onClose }: FavoritesSheetProps) {
             {entries.map((entry) => {
               const { quote, date } = entry.favorite;
               const { primary, secondary } = attributionOf(quote);
-              const captionId = `favorite-${quote.id}`;
+              const captionId = `favorite--${quote.id}`;
               const action = entry.kind === 'kept' ? 'Remove' : 'Undo';
               return (
                 <li
@@ -276,7 +276,7 @@ export function FavoritesSheet({ open, origin, onClose }: FavoritesSheetProps) {
                   {entry.kind === 'kept' && <span className="favorite-tab" aria-hidden="true" />}
                   <div className="favorite-header">
                     {entry.kind === 'kept' ? (
-                      <time className="favorite-date" id={`${captionId}-date`} dateTime={date}>
+                      <time className="favorite-date" id={`${captionId}--date`} dateTime={date}>
                         {formatPublicationDate(date)}
                       </time>
                     ) : (
@@ -288,9 +288,11 @@ export function FavoritesSheet({ open, origin, onClose }: FavoritesSheetProps) {
                       type="button"
                       className="favorite-action"
                       data-label={action}
-                      id={`${captionId}-action`}
+                      id={`${captionId}--action`}
                       aria-labelledby={
-                        entry.kind === 'kept' ? `${captionId}-action ${captionId}-date` : undefined
+                        entry.kind === 'kept'
+                          ? `${captionId}--action ${captionId}--date`
+                          : undefined
                       }
                       aria-describedby={captionId}
                       onClick={() => {
