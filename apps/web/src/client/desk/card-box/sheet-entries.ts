@@ -42,7 +42,7 @@ export function sheetEntries(
 ): SheetEntry[] {
   const entries: SheetEntry[] = current.map((favorite) => ({ kind: 'kept', favorite }));
   for (const removal of stillRemoved(removals, current)) {
-    const shown = new Map(entries.map((entry, index) => [idOf(entry), index]));
+    const shown = new Map<string, number>(entries.map((entry, index) => [idOf(entry), index]));
     const anchor = removal.above.findLast((id) => shown.has(id));
     const at = anchor === undefined ? 0 : (shown.get(anchor) ?? -1) + 1;
     entries.splice(at, 0, { kind: 'removed', favorite: removal.favorite });

@@ -47,6 +47,15 @@ describe('parseFavorites', () => {
     ]);
     expect(ids(parseFavorites(raw))).toEqual(['a', 'c']);
   });
+
+  it('drops entries whose quote id no quote could have', () => {
+    const forged = (id: string) => ({
+      ...publication('a'),
+      quote: { ...publication('a').quote, id },
+    });
+    const raw = JSON.stringify([forged('toggle heart'), forged('A'), forged(''), publication('b')]);
+    expect(ids(parseFavorites(raw))).toEqual(['b']);
+  });
 });
 
 describe('list changes', () => {
