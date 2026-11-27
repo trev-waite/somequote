@@ -122,6 +122,29 @@ describe('the favorites store', () => {
     expect(ids(parseFavorites(localStorage.getItem(FAVORITES_KEY)))).toEqual(['a']);
   });
 
+  it('keeps a change made over a failed read once storage reads back the list it was based on', () => {
+    toggleFavorite(publication('a'));
+    const getItem = vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    toggleFavorite(publication('b'));
+    getItem.mockRestore();
+    expect(ids(currentFavorites())).toEqual(['b', 'a']);
+    toggleFavorite(publication('c'));
+    expect(ids(parseFavorites(localStorage.getItem(FAVORITES_KEY)))).toEqual(['c', 'b', 'a']);
+  });
+
+  it('drops a change made over a failed read once storage reads back a list it never saw', () => {
+    toggleFavorite(publication('a'));
+    const getItem = vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    toggleFavorite(publication('b'));
+    getItem.mockRestore();
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([publication('z')]));
+    expect(ids(currentFavorites())).toEqual(['z']);
+  });
+
   it('works for the visit when storage cannot be read at all', () => {
     const getItem = vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
       throw new DOMException('denied', 'SecurityError');

@@ -57,6 +57,23 @@ describe('FavoriteToggle', () => {
     }
   });
 
+  it('says when this browser refuses to save letting a favorite go', () => {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([publication]));
+    const setItem = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+    try {
+      const { view, toggle, press } = showQuote();
+      press();
+      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+      expect(view.container.querySelector('[role="status"]')?.textContent).toMatch(
+        /^Removed from favorites for this visit only/,
+      );
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
   it('shows a favorite kept earlier, or in another tab', () => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify([publication]));
     const { toggle } = showQuote();

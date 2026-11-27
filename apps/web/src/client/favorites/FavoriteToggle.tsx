@@ -40,7 +40,9 @@ export function FavoriteToggle({ publication, style }: FavoriteToggleProps) {
             ? favoritesSaved()
               ? 'Added to favorites, kept in the card box on the desk.'
               : 'Added to favorites for this visit only; this browser isn’t saving them.'
-            : 'Removed from favorites.'
+            : favoritesSaved()
+              ? 'Removed from favorites.'
+              : 'Removed from favorites for this visit only; this browser isn’t saving them.'
           : ''}
       </p>
     </>

@@ -49,23 +49,27 @@ let snapshot: { readonly raw: string | null; readonly list: Favorites } | undefi
 const UNREADABLE = Symbol('unreadable');
 type Saved = string | null | typeof UNREADABLE;
 
+/** The value last read from or written to storage, which a change over a failed read is based on. */
+let lastSaved: string | null = null;
+
 /**
  * Holds the list for this visit when storage refuses a write or a read, until another tab saves
  * over the value it was based on.
  */
-let unsaved: { readonly raw: string; readonly over: Saved } | undefined;
+let unsaved: { readonly raw: string; readonly over: string | null } | undefined;
 
 function savedRaw(): Saved {
   try {
-    return localStorage.getItem(FAVORITES_KEY);
+    lastSaved = localStorage.getItem(FAVORITES_KEY);
+    return lastSaved;
   } catch {
     return UNREADABLE;
   }
 }
 
 function listOver(saved: Saved): Favorites {
-  if (saved !== UNREADABLE && unsaved && unsaved.over !== saved) unsaved = undefined;
-  const raw = unsaved?.raw ?? (saved === UNREADABLE ? (snapshot?.raw ?? null) : saved);
+  if (saved !== UNREADABLE && unsaved?.over !== saved) unsaved = undefined;
+  const raw = unsaved?.raw ?? lastSaved;
   if (!snapshot || snapshot.raw !== raw) snapshot = { raw, list: parseFavorites(raw) };
   return snapshot.list;
 }
@@ -85,9 +89,10 @@ function update(change: (list: Favorites) => Favorites): void {
   try {
     if (over === UNREADABLE) throw new Error('Favorites could not be read');
     localStorage.setItem(FAVORITES_KEY, raw);
+    lastSaved = raw;
     unsaved = undefined;
   } catch {
-    unsaved = { raw, over };
+    unsaved = { raw, over: lastSaved };
   }
   for (const listener of listeners) listener();
 }
